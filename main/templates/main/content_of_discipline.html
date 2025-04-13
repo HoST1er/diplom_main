@@ -1,0 +1,311 @@
+{% load static %}
+{% include 'main/layout.html' %}
+{% load custom_filters %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    {% block styles %}
+    <style>
+        .features2 {
+            float: left;
+            color: #fff;
+            margin-top: 100px;
+            text-align: center;
+            width: 75%;
+        }
+
+        .container {
+            width: 60%;
+            margin: 20px auto;
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .section {
+            border-bottom: 2px solid white;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            text-align: left;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 8px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .add-button, .remove-button {
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 5px;
+        }
+
+        .add-button {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .remove-button {
+            background-color: #ff4d4d;
+            color: white;
+        }
+
+        .save-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        .profile-group {
+            margin-bottom: 30px;
+        }
+
+        .profile-group h3 {
+            color: #fff;
+            background-color: #444;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .profiles {
+            margin-top: 10px;
+            background-color: #555;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .remove-button.hidden {
+            display: none;
+        }
+
+        .hr-divider {
+            border: 1px solid #fff;
+            margin: 10px 0;
+        }
+    </style>
+    {% endblock %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    {% block oglav %}
+    {% endblock %}
+    <main>
+        <div class="features2">
+            <div class="container">
+                <h2>Содержание дисциплины</h2>
+                <div class="sections-container">
+                    <!-- Разделение на группы профилей -->
+                    {% for group_key, profiles in profile_groups.items %}
+                        <div class="profile-group">
+                            <h3>Профили:</h3>
+                            <div class="profiles">
+                                {% for profile in profiles %}
+                                    <p>{{ profile }}</p>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Блок оставшихся часов -->
+                            <p><strong>Оставшееся время:</strong> <span class="remaining-time" data-group="{{ group_key|join:'_' }}">{{ profile_data|get_item:group_key|attr:"total_hours" }}</span> часов</p>
+
+                            <!-- Поля для ввода данных -->
+                            <div class="section" id="group_{{ group_key|join:'_' }}">
+                                <label>Тема</label>
+                                <input type="text" name="topic_{{ group_key|join:'_' }}[]" placeholder="Введите название темы" required>
+
+                                <label>Описание</label>
+                                <input type="text" name="description_{{ group_key|join:'_' }}[]" placeholder="Введите описание темы" required>
+
+                                <label>Время на тему</label>
+                                <input type="number" name="time_{{ group_key|join:'_' }}[]" class="time-input" data-group="{{ group_key|join:'_' }}" placeholder="Введите время" required>
+
+                                <button type="button" class="remove-button hidden">Удалить</button>
+                                <hr class="hr-divider">
+                            </div>
+
+                            <!-- Кнопка для добавления новой темы -->
+                            <div class="buttons">
+                                <button type="button" class="add-button" data-group="{{ group_key|join:'_' }}">Добавить тему</button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Кнопки для сохранения -->
+                <div class="buttons">
+                    <button type="button" class="save-button">Далее</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+
+        $(document).ready(function () {
+            let initialHours = {}; // Храним исходные total_hours
+
+            // Сохранение изначального total_hours
+            $(".remaining-time").each(function () {
+                let groupKey = $(this).data("group");
+                initialHours[groupKey] = parseInt($(this).text());
+            });
+
+            // Функция для пересчета оставшихся часов
+            function updateRemainingTime(groupKey) {
+                let total = initialHours[groupKey]; // Исходное количество часов
+                let used = 0; // Сколько часов уже введено
+
+                // Суммируем все введенные значения времени
+                $("input.time-input[data-group='" + groupKey + "']").each(function () {
+                    let val = parseInt($(this).val()) || 0;
+                    used += val;
+                });
+
+                let remaining = total - used;
+                let displayElement = $(".remaining-time[data-group='" + groupKey + "']");
+
+                // Обновляем оставшиеся часы в интерфейсе
+                displayElement.text(remaining);
+
+                // Если время превысило лимит — выделяем красным
+                if (remaining < 0) {
+                    displayElement.css("color", "red");
+                    alert("Превышен лимит часов для данной группы профилей!");
+                } else {
+                    displayElement.css("color", "white");
+                }
+                return remaining;
+            }
+
+            // Функция для проверки всех групп
+            function checkAllGroups() {
+                let allValid = true; // Индикатор, все ли группы корректны
+                let invalidGroup = ""; // Группа с проблемой
+
+                $(".remaining-time").each(function () {
+                    let groupKey = $(this).data("group");
+                    let remaining = updateRemainingTime(groupKey); // Получаем оставшееся время для группы
+
+                    // Если оставшееся время не равно 0, то группа неправильная
+                    if (remaining !== 0) {
+                        allValid = false;
+                        invalidGroup = groupKey; // Запоминаем группу с ошибкой
+                        return false; // Прерываем цикл, если нашли ошибку
+                    }
+                });
+
+                // Если все группы в порядке
+                if (allValid) {
+                    $(".save-button").prop("disabled", false); // Активируем кнопку
+                } else {
+                    $(".save-button").prop("disabled", true); // Блокируем кнопку
+                }
+            }
+
+            // Обработчик ввода времени
+            $(document).on("input", ".time-input", function () {
+                let groupKey = $(this).data("group");
+                updateRemainingTime(groupKey);
+                checkAllGroups(); // Проверяем все группы после ввода данных
+            });
+
+            // Добавление новой темы
+            $(".add-button").click(function () {
+                let groupKey = $(this).data("group");
+                let newSection = $('<div class="section">' +
+                    '<label>Тема</label>' +
+                    '<input type="text" name="topic_' + groupKey + '[]" placeholder="Введите тему" required>' +
+                    '<label>Описание</label>' +
+                    '<input type="text" name="description_' + groupKey + '[]" placeholder="Введите описание" required>' +
+                    '<label>Время на тему</label>' +
+                    '<input type="number" name="time_' + groupKey + '[]" class="time-input" data-group="' + groupKey + '" placeholder="Введите время" required>' +
+                    '<button type="button" class="remove-button">Удалить</button>' +
+                    '<hr class="hr-divider">' +
+                    '</div>');
+
+                $("#group_" + groupKey).append(newSection);
+                checkAllGroups(); // Проверяем все группы после добавления новой темы
+            });
+
+            // Удаление темы
+            $(document).on("click", ".remove-button", function () {
+                let section = $(this).closest(".section");
+                let groupKey = section.find(".time-input").data("group");
+                section.remove();
+                updateRemainingTime(groupKey); // Пересчитываем оставшееся время
+                checkAllGroups(); // Проверяем все группы после удаления темы
+            });
+
+            // Сохранение данных при нажатии кнопки "Далее"
+            $(".save-button").click(function () {
+                let topics = [];
+                $(".profile-group").each(function () {
+                    // Получаем название группы профилей
+                    let groupName = $(this).find(".profiles p").map(function () {
+                        return $(this).text().trim();
+                    }).get().join(", ");  // Объединяем несколько профилей в строку
+
+                    $(this).find(".section").each(function () {
+                        let topicName = $(this).find("input[name^='topic_']").val().trim();
+                        let description = $(this).find("input[name^='description_']").val().trim();
+                        let time = $(this).find("input[name^='time_']").val().trim();
+
+                        if (topicName && description && time) {
+                            topics.push({
+                                group: groupName,  // Название группы профилей
+                                topic: topicName,
+                                description: description,
+                                time: parseInt(time)
+                            });
+                        }
+                    });
+                });
+
+                // Отправка данных на сервер
+                $.ajax({
+                    type: "POST",
+                    url: "{% url 'save_user_data2' %}",  // Заменить на свой URL
+                    data: JSON.stringify({ topics: topics }),
+                    contentType: "application/json",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}",
+                    },
+                    success: function (response) {
+                        if (response.status === "success") {
+                            window.location.href = "{% url 'curriculum' %}";
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Ошибка AJAX-запроса:", error);
+                    },
+                });
+            });
+
+            // Изначальная проверка всех групп при загрузке страницы
+            checkAllGroups();
+        });
+    </script>
+</body>
+</html>

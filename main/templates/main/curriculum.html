@@ -1,0 +1,169 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учебный план</title>
+    <style>
+        .features3 {
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            width: 75%;
+            margin-top: 0 !important;
+        }
+
+        table {
+            width: 100%;
+            max-width: 1200px;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ffffff;
+            padding: 5px;
+            text-align: center;
+            color: white;
+        }
+
+        input {
+            width: 50px;
+            text-align: center;
+            border: none;
+        }
+
+        .readonly {
+            background-color: #ffffff;
+        }
+
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #ffffff;
+            color: black;
+            text-align: center;
+            border-radius: 5px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            right: 20px;
+            top: 20px;
+            font-size: 17px;
+            box-shadow: 0px 0px 10px rgb(255, 255, 255);
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <form method="POST" action="{% url 'save_user_data3' %}">
+            {% csrf_token %}
+            <input type="hidden" name="tables_count" value="{{ tables|length }}">
+            {% for table in tables %}
+                <div class="features3">
+                    <input type="hidden" name="profile_{{ forloop.counter }}" value="{{ table.profiles }}">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th colspan="8" class="profile-title">Профили: {{ table.profiles }}</th>
+                            </tr>
+                            <tr>
+                                <th rowspan="2">№ п/п</th>
+                                <th rowspan="2">Наименование тем (разделов) дисциплины</th>
+                                <th rowspan="2">Всего</th>
+                                <th colspan="3">Контактная работа - Аудиторная работа</th>
+                                <th rowspan="2">Самостоятельная работа</th>
+                                <th rowspan="2">Формы текущего контроля успеваемости</th>
+                            </tr>
+                            <tr>
+                                <th>Общая, в т.ч.:</th>
+                                <th>Лекции</th>
+                                <th>Семинары, практические занятия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for topic in table.topics %}
+                            <tr data-table-index="{{ forloop.parentloop.counter }}">
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ topic.topic }}</td>
+                                <td>{{ topic.total }}</td>
+                                <input type="hidden" name="topic_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" value="{{ topic.topic }}">
+                                <td><input type="number" name="classroom_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" class="classroom" oninput="calculateRow({{ forloop.parentloop.counter }}, {{ forloop.counter }})"></td>
+                                <td><input type="number" name="lectures_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" class="lectures" oninput="calculateRow({{ forloop.parentloop.counter }}, {{ forloop.counter }})"></td>
+                                <td><input type="number" name="seminars_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" class="seminars" oninput="calculateRow({{ forloop.parentloop.counter }}, {{ forloop.counter }})"></td>
+                                <td><input type="number" name="independent_{{ forloop.parentloop.counter }}_{{ forloop.counter }}" class="independent" oninput="calculateRow({{ forloop.parentloop.counter }}, {{ forloop.counter }})"></td>
+                                <td>Дискуссия, защита практических заданий</td>
+                            </tr>
+                            {% endfor %}
+
+                            <tr>
+                                <td colspan="2"><b>В целом по дисциплине</b></td>
+                                <td><input type="number" name="summary_total" value="{{ table.summary.total_hours }}" readonly class="readonly"></td>
+                                <td><input type="number" name="summary_classroom" value="{{ table.summary.classroom_hours }}" readonly class="readonly"></td>
+                                <td><input type="number" name="summary_lectures" value="{{ table.summary.lectures }}" readonly class="readonly"></td>
+                                <td><input type="number" name="summary_seminars" value="{{ table.summary.seminars }}" readonly class="readonly"></td>
+                                <td><input type="number" name="summary_independent" value="{{ table.summary.independent_work }}" readonly class="readonly"></td>
+                                <td>Согласно учебному плану: {{ table.control_form }} </td>
+                            </tr>
+
+                             <tr>
+                                <td colspan="2"><b>Итого в %</b></td>
+                                <td>100</td>
+                                <td>{{ table.percent_classroom }}</td>
+                                <td>{{ table.percent_lectures }}</td>
+                                <td>{{ table.percent_seminars }}</td>
+                                <td>{{ table.percent_independent }}</td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+            <div class="features3">
+                <button type="submit" class="save-button">Сохранить данные</button>
+            </div>
+        </form>
+    </main>
+
+    <div id="toast-container"></div>
+    <script>
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.classList.add('toast');
+            toast.innerHTML = message.replace(/\n/g, '<br>');
+            const toastContainer = document.getElementById('toast-container');
+            toastContainer.appendChild(toast);
+            setTimeout(() => { toast.classList.add('show'); }, 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toastContainer.removeChild(toast);
+            }, 3000);
+        }
+
+        function calculateRow(tableIndex, rowIndex) {
+            const row = document.querySelector(`tr[data-table-index='${tableIndex}']:nth-of-type(${rowIndex})`);
+            if (!row) return;
+            const total = parseFloat(row.cells[2].innerText) || 0;
+            const classroom = parseFloat(row.querySelector(`input[name="classroom_${tableIndex}_${rowIndex}"]`).value) || 0;
+            const lectures = parseFloat(row.querySelector(`input[name="lectures_${tableIndex}_${rowIndex}"]`).value) || 0;
+            const seminars = parseFloat(row.querySelector(`input[name="seminars_${tableIndex}_${rowIndex}"]`).value) || 0;
+            const independent = parseFloat(row.querySelector(`input[name="independent_${tableIndex}_${rowIndex}"]`).value) || 0;
+
+            const diffTotalGeneral = total - classroom - independent;
+            const diffGeneralLecturesSeminars = classroom - lectures - seminars;
+
+            showToast(`Таблица ${tableIndex}, строка ${rowIndex}:\nРазница (Всего - Общая - Самостоятельная): ${diffTotalGeneral.toFixed(2)}\nРазница (Общая - Лекции - Семинары): ${diffGeneralLecturesSeminars.toFixed(2)}`);
+        }
+
+    </script>
+</body>
+</html>

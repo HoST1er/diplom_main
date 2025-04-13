@@ -1,0 +1,274 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .features1 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+            width: 75%;
+        }
+
+        table {
+            width: 80%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 2px solid white;
+            padding: 10px;
+            text-align: left;
+            color: white;
+        }
+
+        th:nth-child(3), td:nth-child(3) {
+            border-right: 3px solid white;
+        }
+
+        th:nth-child(4), td:nth-child(4) {
+            border-left: 2px solid white;
+        }
+
+        .indicator-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .indicator-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid white;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .indicator-col {
+            width: 45%;
+        }
+
+        .results-col {
+            width: 50%;
+        }
+
+        .button-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .add-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 5px;
+        }
+
+        .remove-button {
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 5px;
+        }
+
+        .next-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        .next-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    {% block oglav %}
+    {% endblock %}
+    <main>
+        <div class="features1">
+        <h1>Сформируйте компетенции</h1>
+            <table>
+                <tr>
+                    <th>Код компетенции</th>
+                    <th>Наименование компетенции</th>
+                    <th>Индикаторы достижения компетенции</th>
+                    <th>Результаты обучения (умения и знания), соотнесенные с идникаторами достижения компетенции</th>
+                </tr>
+                {% for profile in profiles %}
+                    <tr>
+                        <td colspan="4">Для профиля «{{ profile.profile }}» </td>
+                    </tr>
+                    {% for competence in profile.competentions_list %}
+                        <tr>
+                            <td>{{ competence.code }}</td>
+                            <td>{{ competence.description }}</td>
+                            <td colspan="2">
+                                <div class="indicator-container">
+                                    <div class="indicator-group">
+                                        <div class="indicator-col">
+                                            <input type="text" name="indicators[]">
+                                            <button type="button" class="add-button add-indicator">+</button>
+                                        </div>
+                                        <div class="results-col">
+                                            <strong>Знать:</strong>
+                                            <div class="know-fields">
+                                                <input type="text" name="know[]">
+                                                <button type="button" class="add-button add-know">+</button>
+                                            </div>
+                                            <strong>Уметь:</strong>
+                                            <div class="do-fields">
+                                                <input type="text" name="do[]">
+                                                <button type="button" class="add-button add-do">+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endfor %}
+            </table>
+            <button type="button" class="next-button">Далее</button>
+        </div>
+    </main>
+    <script>
+
+        $(document).on('click', '.add-indicator', function() {
+            let container = $(this).closest('.indicator-container');
+
+            let newIndicator = $('<div class="indicator-group">' +
+                '<div class="indicator-col">' +
+                '<input type="text" name="indicators[]">' +
+                '<button type="button" class="remove-button remove-indicator">-</button>' +
+                '</div>' +
+                '<div class="results-col">' +
+                '<strong>Знать:</strong>' +
+                '<div class="know-fields">' +
+                '<input type="text" name="know[]">' +
+                '<button type="button" class="add-button add-know">+</button>' +
+                '</div>' +
+                '<strong>Уметь:</strong>' +
+                '<div class="do-fields">' +
+                '<input type="text" name="do[]">' +
+                '<button type="button" class="add-button add-do">+</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>');
+
+            container.append(newIndicator);
+        });
+
+        $(document).on('click', '.remove-indicator', function() {
+            $(this).closest('.indicator-group').remove();
+        });
+
+        $(document).on('click', '.add-know', function() {
+            let knowFields = $(this).closest('.know-fields');
+            let newField = $('<div class="know-item">' +
+                '<input type="text" name="know[]">' +
+                '<button type="button" class="remove-button remove-know">-</button>' +
+                '</div>');
+            knowFields.append(newField);
+        });
+
+        $(document).on('click', '.remove-know', function() {
+            $(this).parent().remove();
+        });
+
+        $(document).on('click', '.add-do', function() {
+            let doFields = $(this).closest('.do-fields');
+            let newField = $('<div class="do-item">' +
+                '<input type="text" name="do[]">' +
+                '<button type="button" class="remove-button remove-do">-</button>' +
+                '</div>');
+            doFields.append(newField);
+        });
+
+        $(document).on('click', '.remove-do', function() {
+            $(this).parent().remove();
+        });
+
+
+        $(document).on("click", ".next-button", function () {
+            console.log("Кнопка нажата!");
+
+            let competencies = [];
+            let currentProfile = null;
+
+            $("table tr").each(function () {
+                let profileHeader = $(this).find("td[colspan='4']");
+
+                if (profileHeader.length) {
+                    currentProfile = profileHeader.text().replace("Для профиля ", "").trim();
+                    return;
+                }
+
+                let competence_code = $(this).find("td:first").text().trim();
+                let competence_name = $(this).find("td:nth-child(2)").text().trim();
+
+                let indicators = [];
+                $(this).find(".indicator-col input").each(function () {
+                    indicators.push($(this).val().trim());
+                });
+
+                let know = [];
+                $(this).find(".know-fields input").each(function () {
+                    know.push($(this).val().trim());
+                });
+
+                let do_ = [];
+                $(this).find(".do-fields input").each(function () {
+                    do_.push($(this).val().trim());
+                });
+
+                if (competence_code && competence_name && currentProfile) {
+                    competencies.push({
+                        profile: currentProfile,
+                        competence_code: competence_code,
+                        competence_name: competence_name,
+                        indicators: indicators,
+                        know: know,
+                        do: do_,
+                    });
+                }
+            });
+
+            console.log("Отправляемые данные:", competencies);
+
+            $.ajax({
+                type: "POST",
+                url: "{% url 'save_user_data1' %}",
+                data: JSON.stringify({ competencies: competencies }),
+                contentType: "application/json",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                },
+                success: function (response) {
+                    console.log("Ответ от сервера:", response);
+                    if (response.status === "success") {
+                        window.location.href = "{% url 'content_of_discipline' %}";
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("Ошибка AJAX-запроса:", error);
+                },
+            });
+        });
+    </script>
+</body>
+</html>

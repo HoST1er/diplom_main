@@ -1,0 +1,23 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    {% block styles %}
+    {% endblock %}
+</head>
+<body>
+    {% block oglav %}
+    {% endblock %}
+    <main>
+        <div class="features">
+
+            <form action="/upload/" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="file" id="fileInput" name="files" multiple webkitdirectory>
+                <button type="submit">Загрузить</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

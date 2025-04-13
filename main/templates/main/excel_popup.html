@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Excel Таблица</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@13.0.0/dist/handsontable.min.js"></script>
+    <style>
+        body {
+            background: #f0f0f0;
+            padding: 20px;
+            font-family: sans-serif;
+        }
+        #excel {
+            width: 100%;
+            margin: auto;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 15px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Редактирование вопросов в Excel-таблице</h2>
+<div id="excel"></div>
+<button onclick="sendExcelData()">Сохранить и закрыть</button>
+
+<script>
+    let hot;
+    let container = document.getElementById('excel');
+
+    function initTable(topics) {
+        let data = topics.map(topic => [topic, '', '']);
+        hot = new Handsontable(container, {
+            data: data,
+            colHeaders: ['Тема', 'Вопросы (через ;)', 'Форма проведения'],
+            columns: [
+                { readOnly: true }, // Тема — только для чтения
+                { type: 'text' },
+                { type: 'text' }
+            ],
+            rowHeaders: true,
+            licenseKey: 'non-commercial-and-evaluation'
+        });
+    }
+
+    // Получаем темы от родителя
+    window.addEventListener("message", function(event) {
+        if (event.data.type === 'init_topics') {
+            const topics = event.data.payload;
+            initTable(topics);
+        }
+    });
+
+    function sendExcelData() {
+        const tableData = hot.getData();
+        const formatted = tableData.map(row => ({
+            topic: row[0],
+            questions: row[1]?.split(';').map(q => q.trim()).filter(q => q),
+            form: row[2]
+        }));
+
+        // Отправим обратно в основное окно
+        window.opener.postMessage({
+            type: 'excel_data',
+            payload: formatted
+        }, "*");
+
+        window.close();
+    }
+</script>
+
+</body>
+</html>

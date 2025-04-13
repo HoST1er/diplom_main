@@ -1,0 +1,213 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    {% block styles %}
+    {% endblock %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        {#.features1 {#}
+        {#    width: 100%;#}
+        {#    margin-top: 20px;#}
+        {#    padding-left: 10px;#}
+
+        .features1 {
+            float: left;
+            color: #fff;
+            margin-top: 100px;
+            text-align: center;
+            width: 75%;
+        }
+
+        .input-wrapper {
+            width: 100%;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .input-wrapper h3 {
+            margin: 0;
+            font-size: 18px;
+            display: inline-block;
+            width: 200px;
+        }
+
+        .input-wrapper input {
+            padding: 10px;
+            width: calc(100% - 880px); /* Ширина input поля */
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-left: 10px;
+        }
+
+        /* Стиль для списка предложений */
+        .suggestions {
+            position: absolute;
+            width: calc(100% - 880px); /* Ширина совпадает с шириной поля ввода */
+            max-width: calc(100% - 880px);
+            border: 1px solid #ccc;
+            background: white;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 1000;
+            border-radius: 5px;
+            display: none;
+            top: calc(100% + 5px); /* Размещаем сразу под полем ввода */
+            box-sizing: border-box;
+        }
+
+        .suggestions div {
+            padding: 10px;
+            cursor: pointer;
+            color: black;
+            background: white;
+        }
+
+        .suggestions div:hover {
+            background: #f0f0f0;
+        }
+                /* Стиль для кнопки */
+        .submit-btn {
+            background-color: #af4c4c;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    {% block oglav %}
+    {% endblock %}
+    <main>
+        <div class="features1">
+            <div class="input-wrapper">
+                <h3>Преподаватель</h3>
+                <br>
+                <input type="text" id="teacher" placeholder="Иванов И.И." onfocus="this.placeholder=''" onblur="this.placeholder='Иванов И.И.'">
+            </div>
+
+            <div class="input-wrapper">
+                <label for="direction" title="Введите направление подготовки">Введите направление подготовки</label>
+
+                <br>
+                <input type="text" id="direction" onkeyup="fetchSuggestions(this.value, 'direction')" title="Введите направление подготовки">
+                <div id="direction-suggestions" class="suggestions"></div>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="subject" title="Введите название предмета">Введите название предмета</label>
+                <br>
+                <input type="text" id="subject" onkeyup="fetchSuggestions(this.value, 'subject')" title="Введите название предмета">
+                <div id="subject-suggestions" class="suggestions"></div>
+            </div>
+
+            <button class="submit-btn" onclick="submitData()">Далее</button>
+        </div>
+    </main>
+
+    <script>
+        function fetchSuggestions(query, field) {
+            console.log('Query:', query);  // Выводим значение query в консоль
+            console.log('Field:', field);  // Выводим значение field в консоль
+            let suggestionsBox = document.getElementById(field + '-suggestions');
+            let inputField = document.getElementById(field);
+
+            // Получаем позицию поля ввода
+            let rect = inputField.getBoundingClientRect();
+
+            // Устанавливаем позицию suggestions
+            suggestionsBox.style.left = rect.left + 'px'; // Выставляем left для совпадения с input
+            suggestionsBox.style.width = rect.width + 'px'; // Ширина списка совпадает с шириной поля ввода
+
+            if (query.length < 2) {
+                suggestionsBox.style.display = 'none';
+                return;
+            }
+
+            fetch(`/get_suggestions/?field=${field}&query=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    suggestionsBox.innerHTML = '';
+                    if (data.length === 0) {
+                        suggestionsBox.style.display = 'none';
+                        return;
+                    }
+
+                    data.forEach(item => {
+                        let div = document.createElement('div');
+                        div.textContent = item;
+                        div.onclick = () => {
+                            document.getElementById(field).value = item;
+                            suggestionsBox.style.display = 'none';
+                        };
+                        suggestionsBox.appendChild(div);
+                    });
+
+                    suggestionsBox.style.display = 'block';
+                })
+                .catch(error => console.error('Ошибка:', error));
+        }
+
+        // Закрытие списка при клике вне него
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.input-wrapper')) {
+                document.querySelectorAll('.suggestions').forEach(s => s.style.display = 'none');
+            }
+        });
+
+        function submitData() {
+            let teacher = document.getElementById("teacher").value;
+            let subject = document.getElementById("subject").value;
+            let direction = document.getElementById("direction").value;
+
+            let formData = new FormData();
+            formData.append("teacher", teacher);
+            formData.append("subject", subject);
+            formData.append("direction", direction);
+
+            fetch("/save_user_data/", {
+                method: "POST",
+                body: formData
+            }).then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url; // Перенаправление на новую страницу
+                } else {
+                    console.log("Ошибка при сохранении данных");
+                }
+            }).catch(error => console.error("Ошибка запроса:", error));
+        }
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                let cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    let cookie = cookies[i].trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.input-wrapper')) {
+                document.querySelectorAll('.suggestions').forEach(s => s.style.display = 'none');
+            }
+        });
+    </script>
+
+</body>
+</html>

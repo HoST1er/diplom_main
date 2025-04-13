@@ -1,0 +1,257 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заполнение вопросов</title>
+    <style>
+        body {
+            background-color: #2c2c2c;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        table {
+            width: 90%;
+            border-collapse: collapse;
+            margin: 20px auto;
+            background: #2c2c2c;
+        }
+        th, td {
+            border: 1px solid #ffffff;
+            padding: 8px;
+            text-align: center;
+            color: white;
+        }
+        input {
+            width: 90%;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 5px;
+        }
+        .btn-save {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        .btn-add {
+            cursor: pointer;
+            margin: 2px;
+            padding: 5px 10px;
+            background: #4caf50;
+            color: white;
+            border: none;
+        }
+        .btn-remove {
+            cursor: pointer;
+            margin: 2px;
+            padding: 5px 10px;
+            background: #ff4d4d;
+            color: white;
+            border: none;
+        }
+        .btn-save:hover {
+            background: #666;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Перечень вопросов, отводимых на самостоятельное освоение дисциплины</h1>
+
+<form id="seminarForm" onsubmit="saveDataAndRedirect(event)">
+    <table>
+        <thead>
+            <tr>
+                <th>Наименование тем (разделов) дисциплинв</th>
+                <th>Перечень вопросов, отводимых на самостоятельное освоение</th>
+                <th>Формы внеаудиторной самостоятельной работы</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for profile, topics in user_data.topics.items %}
+                {% for topic in topics %}
+                    <tr>
+                        <td>{{ topic.topic }}</td>
+                        <td>
+                            <div class="question-container">
+                                <div class="question-row">
+                                    <input type="text" name="questions_{{ forloop.counter }}">
+                                    <button type="button" class="btn-add" onclick="addQuestion(this)">+</button>
+                                    <button type="button" class="btn-remove" onclick="removeQuestion(this)">-</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td><input type="text" name="forms_{{ forloop.counter }}"></td>
+                    </tr>
+                {% endfor %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <h2>Редактирование в Excel-таблице</h2>
+    <button type="button" onclick="openExcelWindow()" class="btn-save">Открыть Excel</button>
+
+    <button type="submit" class="btn-save">Далее</button>
+</form>
+
+<script>
+    function addQuestion(button) {
+        let container = button.closest('.question-container');
+        let newRow = document.createElement('div');
+        newRow.className = 'question-row';
+        newRow.innerHTML = `
+            <input type="text" name="${button.closest('td').querySelector('input').name}">
+            <button type="button" class="btn-add" onclick="addQuestion(this)">+</button>
+            <button type="button" class="btn-remove" onclick="removeQuestion(this)">-</button>
+        `;
+        container.appendChild(newRow);
+    }
+
+    function removeQuestion(button) {
+        let container = button.closest('.question-container');
+        if (container.children.length > 1) {
+            button.closest('.question-row').remove();
+        }
+    }
+
+    function saveDataAndRedirect(event) {
+        event.preventDefault(); // Останавливаем стандартное поведение формы
+
+        let tablesData = [];
+
+        document.querySelectorAll('tr').forEach((row, index) => {
+            let inputs = row.querySelectorAll('input');
+            if (inputs.length > 0) {
+                let questions = [];
+                row.querySelectorAll('.question-row input').forEach(input => {
+                    questions.push(input.value);
+                });
+
+                tablesData.push({
+                    topic: row.cells[0].textContent.trim(),
+                    questions: questions,
+                    form: row.cells[2].querySelector('input').value
+                });
+            }
+        });
+
+        fetch("{% url 'save_user_data5' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({ tables: tablesData })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                window.location.href = "{% url 'questions_to_work' %}";  // Меняем на нужную страницу
+            } else {
+                alert("Ошибка: " + data.message);
+            }
+        })
+        .catch(error => {
+            console.error("Ошибка:", error);
+            alert("Ошибка при сохранении данных.");
+        });
+    }
+
+     // Соберём темы из шаблона и отправим их в popup
+    function openExcelWindow() {
+        const topics = [];
+        document.querySelectorAll('tbody tr').forEach(row => {
+            const topicCell = row.cells[0];
+            if (topicCell) {
+                const topicText = topicCell.textContent.trim();
+                if (topicText) {
+                    topics.push(topicText);
+                }
+            }
+        });
+
+        const popup = window.open("{% url 'excel_popup1' %}", "_blank", "width=900,height=600");
+
+        // Ждём загрузки окна и отправляем данные
+        const interval = setInterval(() => {
+            if (popup && popup.postMessage) {
+                popup.postMessage({
+                    type: 'init_topics',
+                    payload: topics
+                }, '*');
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
+
+    // Отрисовка данных из Excel в таблицу HTML
+    function updateTableFromExcel(excelData) {
+        const tbody = document.querySelector("tbody");
+        tbody.innerHTML = ''; // Очищаем старые строки
+
+        excelData.forEach((item, index) => {
+            const row = document.createElement("tr");
+
+            // Тема
+            const topicCell = document.createElement("td");
+            topicCell.textContent = item.topic;
+            row.appendChild(topicCell);
+
+            // Вопросы
+            const questionCell = document.createElement("td");
+            const container = document.createElement("div");
+            container.className = "question-container";
+            item.questions.forEach(question => {
+                const rowDiv = document.createElement("div");
+                rowDiv.className = "question-row";
+                rowDiv.innerHTML = `
+                    <input type="text" name="questions_${index + 1}" value="${question}">
+                    <button type="button" class="btn-add" onclick="addQuestion(this)">+</button>
+                    <button type="button" class="btn-remove" onclick="removeQuestion(this)">-</button>
+                `;
+                container.appendChild(rowDiv);
+            });
+
+            // Если нет вопросов — добавляем пустое поле
+            if (item.questions.length === 0) {
+                const rowDiv = document.createElement("div");
+                rowDiv.className = "question-row";
+                rowDiv.innerHTML = `
+                    <input type="text" name="questions_${index + 1}">
+                    <button type="button" class="btn-add" onclick="addQuestion(this)">+</button>
+                    <button type="button" class="btn-remove" onclick="removeQuestion(this)">-</button>
+                `;
+                container.appendChild(rowDiv);
+            }
+
+            questionCell.appendChild(container);
+            row.appendChild(questionCell);
+
+            // Формы
+            const formCell = document.createElement("td");
+            formCell.innerHTML = `<input type="text" name="forms_${index + 1}" value="${item.form || ''}">`;
+            row.appendChild(formCell);
+
+            tbody.appendChild(row);
+        });
+    }
+
+    // Слушаем сообщения от popup
+    window.addEventListener("message", function(event) {
+        if (event.data.type === 'excel_data') {
+            const excelData = event.data.payload;
+            updateTableFromExcel(excelData);
+        }
+    });
+</script>
+
+</body>
+</html>

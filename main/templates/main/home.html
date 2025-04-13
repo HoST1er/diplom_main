@@ -1,0 +1,22 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block styles %}
+    {% endblock %}
+</head>
+<body>
+    {% block oglav %}
+    {% endblock oglav %}
+    <main>
+        <div class="features">
+            <h1>Платформа для создания РПД</h1>
+            <br>
+            <a href="{% url 'start_page' %}"><button class="btn btn-info"> Начать формирование</button></a>
+            <br>
+
+        </div>
+    </main>
+</body>
+</html>

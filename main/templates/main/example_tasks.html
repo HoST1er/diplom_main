@@ -1,0 +1,209 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Типовые контрольные задания</title>
+    <style>
+        .features1 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+            width: 90%;  /* Увеличим ширину блока */
+            margin: 0 auto; /* Центрируем блок */
+        }
+        table {
+            width: 100%;  /* Сделаем таблицу на всю ширину блока */
+            max-width: 1200px;  /* Максимальная ширина таблицы */
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 2px solid white;
+            padding: 10px;
+            text-align: left;
+            color: white;
+        }
+
+        .add-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 5px;
+        }
+
+        .remove-button {
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 5px;
+        }
+
+        .submit-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        .submit-button:hover {
+            background-color: #0056b3;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        main {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+    </style>
+</head>
+<body>
+
+{% block oglav %}
+{% endblock %}
+<main>
+    <form method="POST" id="controlTasksForm">
+        {% csrf_token %}
+        <div class='features1'>
+        <h1>Типовые контрольные задания</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Наименование компетенции</th>
+                        <th>Индикаторы достижения компетенции</th>
+                        <th>Результаты обучения (умения и знания)</th>
+                        <th>Типовые контрольные задания</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for profile, competencies in competencies_by_profile.items %}
+                        <tr>
+                            <td colspan="4" style="font-weight: bold; text-align: left; background-color: #2c2c2c;">Для профиля «{{ profile }}» </td>
+                        </tr>
+                        {% for competence in competencies %}
+                            <tr>
+                                <td rowspan="{{ competence.rowspan }}">
+                                    <strong>{{ competence.competence_code }} <br>{{ competence.competence_name }}</strong>
+                                </td>
+                                {% for indicator, know, do in competence.indicators_with_know_do %}
+                                    <tr>
+                                        <td>{{ indicator }}</td>
+                                        <td>
+                                            <div><strong>Знания:</strong> {{ know }}</div>
+                                            <div><strong>Умения:</strong> {{ do }}</div>
+                                        </td>
+                                        <td>
+                                            <table class="task-table">
+                                                <tr class="input-row">
+                                                    <td><input type="text" name="task_{{ competence.competence_code }}_{{ loop.index }}" /></td>
+                                                    <td class="controls">
+                                                        <button type="button" class="add-button" onclick="addInputBox(this)">+</button>
+                                                        <button type="button" class="remove-button" onclick="removeInputBox(this)">-</button>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+            <!-- Кнопка отправки данных -->
+            <button type="submit" class="submit-button">Далее</button>
+        </form>
+</main>
+
+<script>
+    function addInputBox(button) {
+        const row = button.closest('.input-row');
+        const table = row.closest('table');
+        const newRow = document.createElement('tr');
+        newRow.classList.add('input-row');
+
+        const inputCell = document.createElement('td');
+        inputCell.innerHTML = '<input type="text" name="task_new" />';
+        newRow.appendChild(inputCell);
+
+        const controlsCell = document.createElement('td');
+        controlsCell.classList.add('controls');
+        controlsCell.innerHTML = '<button type="button" class="add-button" onclick="addInputBox(this)">+</button> ' +
+                                 '<button type="button" class="remove-button" onclick="removeInputBox(this)">-</button>';
+        newRow.appendChild(controlsCell);
+
+        table.appendChild(newRow);
+    }
+
+    function removeInputBox(button) {
+        const row = button.closest('.input-row');
+        const table = row.closest('table');
+
+        if (table.querySelectorAll('.input-row').length > 1) {
+            row.remove();
+        }
+    }
+
+    document.getElementById("controlTasksForm").onsubmit = function(event) {
+        event.preventDefault();
+
+        const formData = new FormData(event.target);
+        const controlTasks = {};
+
+        // Пробежимся по всем полям и формируем правильный ключ для каждой задачи
+        formData.forEach((value, key) => {
+            const [competenceCode, taskIndex] = key.split('_');
+            if (!controlTasks[competenceCode]) {
+                controlTasks[competenceCode] = [];
+            }
+            controlTasks[competenceCode].push({
+                taskIndex: taskIndex,
+                taskValue: value
+            });
+        });
+
+        fetch("{% url 'save_user_data7' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ control_tasks: controlTasks })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                // Перенаправление на другую страницу после успешного сохранения
+                window.location.href = "{% url 'example_quest_to_test' %}";  // Замените 'your_next_page' на нужный URL
+            } else {
+                alert('Ошибка при сохранении данных');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert('Ошибка при отправке данных');
+        });
+    }
+</script>
+
+</body>
+</html>
