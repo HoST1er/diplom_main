@@ -14,6 +14,8 @@ from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.generic import FormView
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
 from docx.shared import Pt
 
 from diplommain import settings
@@ -390,8 +392,16 @@ def save_user_data(request):
         user_data['Преподаватель'] = teacher
         user_data['Наименование предмета'] = subject
         user_data['Направление'] = direction
-        print("Сохраненные данные:", user_data)
+        #print("Сохраненные данные:", user_data)
 
+        obraz_program = FirstVariantBd.objects.filter(name_object=subject,
+                                                 direction_of_preparation=direction)  # Фильтрация по предмету
+
+        #print('программа',obraz_program[0].edu_program)
+        user_data['Образовательная программа'] = obraz_program[0].edu_program
+        print("Сохраненные данные:", user_data)
+        # for i in obraz_program:
+        #     print('программа',i.edu_program)
 
         return redirect("competencies")
 
@@ -859,81 +869,106 @@ def example_tasks(request):
     return render(request, 'main/example_tasks.html', {'competencies_by_profile': competencies_by_profile})
 
 
+# Вспомогательная функция для вставки таблицы после параграфа
+def insert_table_after(paragraph, rows, cols):
+    tbl = OxmlElement('w:tbl')
+    paragraph._p.addnext(tbl)
+    new_doc = Document()
+    table = new_doc.add_table(rows=rows, cols=cols)
+    tbl.append(table._tbl)
+    return table
+
 def export_to_word(request):
     # Путь к шаблону
     template_path = 'C:/Users/andru/PycharmProjects/diplommain/main/templates/docx_templates/template_with_placeholders.docx'
 
-    # Проверяем, существует ли файл
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Шаблон не найден по пути: {template_path}")
 
     doc = Document(template_path)
 
-    # Функция для замены меток в тексте параграфа или ячейки таблицы
+    # Функция для замены плейсхолдеров
     def replace_placeholders(paragraphs):
         for p in paragraphs:
+            full_text = ''.join(run.text for run in p.runs)
+
+            # Обработка обычных плейсхолдеров
             for key, value in user_data.items():
-                # Заменяем основные метки вида {{key}}
-                if f'{{{{{key}}}}}' in p.text:
-                    inline = p.runs
-                    for i in range(len(inline)):
-                        if f'{{{{{key}}}}}' in inline[i].text:
-                            inline[i].text = inline[i].text.replace(f'{{{{{key}}}}}', str(value))
+                if key == 'competencies':
+                    continue  # competencies обрабатываем отдельно
 
-                # Заменяем метку {{competencies}}
-                if '{{competencies}}' in p.text:
-                    # Строим таблицу для competencies с четырьмя столбцами
-                    table = doc.add_table(rows=1, cols=4)
+                placeholder = f'{{{{{key}}}}}'
 
-                    # Добавляем заголовки таблицы
-                    headers = ['Код компетенции', 'Наименование компетенции', 'Индикаторы достижения компетенции', 'Результаты обучения']
-                    for i, header in enumerate(headers):
-                        table.cell(0, i).text = header
+                if key in ['Наименование предмета', 'Образовательная программа', 'Направление']:
+                    value = f'«{value}»'  # Добавляем елочки автоматически
 
-                    # Добавляем строки с данными компетенций
-                    for comp in user_data['competencies']:
+                if placeholder in full_text:
+                    full_text = full_text.replace(placeholder, str(value))
+
+            # Обновляем параграф если изменился
+            if full_text != ''.join(run.text for run in p.runs):
+                for run in p.runs:
+                    run.text = ''
+                p.add_run(full_text)
+
+            # Обработка {{competencies}}
+            if '{{competencies}}' in full_text:
+                # Удаляем текст метки
+                for run in p.runs:
+                    run.text = ''
+
+                # Вставляем таблицу прямо после параграфа
+                table = insert_table_after(p, rows=1, cols=4)
+                table.style = 'Table Grid'
+
+                # Заголовки таблицы
+                headers = ['Код компетенции', 'Наименование компетенции', 'Индикаторы достижения компетенции', 'Результаты обучения']
+                for i, header in enumerate(headers):
+                    cell = table.rows[0].cells[i]
+                    cell.text = header
+                    para = cell.paragraphs[0]
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = para.runs[0]
+                    run.font.bold = True
+                    run.font.size = Pt(12)
+
+                # Компетенции по профилям
+                competencies_by_profile = defaultdict(list)
+                for comp in user_data['competencies']:
+                    competencies_by_profile[comp['profile']].append(comp)
+
+                for profile, comps in competencies_by_profile.items():
+                    # Строка профиля
+                    profile_row = table.add_row().cells
+                    profile_row[0].text = profile
+                    profile_row[0].merge(profile_row[1]).merge(profile_row[2]).merge(profile_row[3])
+                    para = profile_row[0].paragraphs[0]
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = para.runs[0]
+                    run.font.bold = True
+                    run.font.size = Pt(12)
+
+                    # Строки компетенций
+                    for comp in comps:
                         row = table.add_row().cells
                         row[0].text = comp['competence_code']
                         row[1].text = comp['competence_name']
                         row[2].text = ', '.join(comp['indicators'])
                         row[3].text = f"Знать: {', '.join(comp['know'])}\nУметь: {', '.join(comp['do'])}"
 
-                    # Применяем стиль к таблице (если не применяется автоматически)
-                    for row in table.rows:
-                        for cell in row.cells:
-                            cell.paragraphs[0].alignment = 1  # Центрируем текст в ячейке
+                        for cell in row:
+                            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-                    # Добавляем границы таблицы вручную
-                    for row in table.rows:
-                        for cell in row.cells:
-                            # Устанавливаем границу ячеек
-                            cell._element.get_or_add_tcPr().append(
-                                docx.oxml.parse_xml(
-                                    r'<w:tcBorders xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-                                    r'<w:top w:val="single" w:sz="4" />'  # Верхняя граница
-                                    r'<w:left w:val="single" w:sz="4" />'  # Левая граница
-                                    r'<w:bottom w:val="single" w:sz="4" />'  # Нижняя граница
-                                    r'<w:right w:val="single" w:sz="4" />'  # Правая граница
-                                    r'</w:tcBorders>'
-                                )
-                            )
-
-                    # Заменяем метку на сгенерированную таблицу
-                    inline = p.runs
-                    for i in range(len(inline)):
-                        if '{{competencies}}' in inline[i].text:
-                            inline[i].text = inline[i].text.replace('{{competencies}}', '')
-
-    # Заменяем метки в параграфах
+    # Заменяем метки в параграфах документа
     replace_placeholders(doc.paragraphs)
 
-    # Заменяем метки в таблицах (если есть)
+    # Заменяем метки в таблицах (если в шаблоне вдруг есть таблицы)
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 replace_placeholders(cell.paragraphs)
 
-    # Генерация ответа
+    # Отдаем файл пользователю
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = 'attachment; filename=program.docx'
     doc.save(response)
