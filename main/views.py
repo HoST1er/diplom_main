@@ -877,6 +877,14 @@ def insert_table_after(paragraph, rows, cols):
     paragraph._p.addnext(tbl)
     return table
 
+def insert_paragraph_after(paragraph, text):
+    new_p = OxmlElement("w:p")
+    paragraph._p.addnext(new_p)
+    new_para = paragraph._parent.add_paragraph()
+    new_para._element = new_p
+    new_para.add_run(text)
+    return new_para
+
 def export_to_word(request):
     template_path = 'C:/Users/andru/PycharmProjects/diplommain/main/templates/docx_templates/template_with_placeholders.docx'
 
@@ -920,8 +928,12 @@ def export_to_word(request):
             if '{{volumes}}' in full_text:
                 for run in p.runs:
                     run.text = ''
+
                 for key, profiles_list in profile_groups.items():
                     profile = profile_data[key]
+
+                    # Параграф с профилями над таблицей
+                    profiles_paragraph = insert_paragraph_after(p, f"Профили: {', '.join(profiles_list)}")
 
                     sem_list = []
                     for sem_field in [profile.exam, profile.test_obj, profile.test_obj_with_mark]:
@@ -930,7 +942,7 @@ def export_to_word(request):
                     sem_list = sorted(set(sem_list), key=int)
 
                     columns = 2 + len(sem_list)
-                    table = insert_table_after(p, rows=0, cols=columns)
+                    table = insert_table_after(profiles_paragraph, rows=0, cols=columns)
                     table.style = 'Table Grid'
 
                     header = table.add_row().cells
@@ -945,37 +957,26 @@ def export_to_word(request):
                         for idx, val in enumerate(values):
                             row[1 + idx].text = str(val)
 
-                    # Общая трудоемкость
                     ects_total = f"{profile.ECTS}/{profile.total_hours}"
                     add_row('Общая трудоемкость дисциплины', [ects_total] + [profile.total_hours] * len(sem_list))
-
                     add_row('Контактная работа - Аудиторные занятия', [profile.classroom_hours] * (1 + len(sem_list)))
                     add_row('Лекции', [profile.lectures] * (1 + len(sem_list)))
                     add_row('Семинары, практические занятия', [profile.seminars] * (1 + len(sem_list)))
                     add_row('Самостоятельная работа', [profile.independent_work] * (1 + len(sem_list)))
 
-                    # Вид текущего контроля
                     current_control = []
                     if profile.control_work: current_control.append("Контрольная работа")
                     if profile.essay: current_control.append("Реферат")
                     if profile.calcul_analytic_work: current_control.append("Расчетно-аналитическая работа")
                     if profile.creative_homework: current_control.append("Творческое задание")
                     if profile.project_work: current_control.append("Проектная работа")
-                    add_row('Вид текущего контроля', [""] + current_control[:len(sem_list)])
+                    add_row('Вид текущего контроля', [", ".join(current_control)] + current_control[:len(sem_list)])
 
-                    # Вид промежуточной аттестации
                     attestation = []
                     if profile.exam: attestation.append("Экзамен")
                     if profile.test_obj: attestation.append("Зачет")
                     if profile.test_obj_with_mark: attestation.append("Зачет с оценкой")
-                    add_row('Вид промежуточной аттестации', [""] + attestation[:len(sem_list)])
-
-                    # Название профилей
-                    row = table.add_row().cells
-                    row[0].text = f"Профили: {', '.join(profiles_list)}"
-                    row[0].merge(row[1])
-                    for i in range(2, columns):
-                        row[0].merge(row[i])
+                    add_row('Вид промежуточной аттестации', [", ".join(attestation)] + attestation[:len(sem_list)])
 
             elif full_text != ''.join(run.text for run in p.runs):
                     for run in p.runs:
