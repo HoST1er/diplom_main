@@ -17,6 +17,7 @@ from django.views.generic import FormView
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.shared import Pt
+from docx.text.paragraph import Paragraph
 
 from diplommain import settings
 from .models import FirstVariantBd, Description_of_competencies
@@ -869,17 +870,14 @@ def example_tasks(request):
     return render(request, 'main/example_tasks.html', {'competencies_by_profile': competencies_by_profile})
 
 
-# Вспомогательная функция для вставки таблицы после параграфа
 def insert_table_after(paragraph, rows, cols):
-    tbl = OxmlElement('w:tbl')
-    paragraph._p.addnext(tbl)
     new_doc = Document()
     table = new_doc.add_table(rows=rows, cols=cols)
-    tbl.append(table._tbl)
+    tbl = table._tbl
+    paragraph._p.addnext(tbl)
     return table
 
 def export_to_word(request):
-    # Путь к шаблону
     template_path = 'C:/Users/andru/PycharmProjects/diplommain/main/templates/docx_templates/template_with_placeholders.docx'
 
     if not os.path.exists(template_path):
@@ -887,7 +885,23 @@ def export_to_word(request):
 
     doc = Document(template_path)
 
-    # Функция для замены плейсхолдеров
+    # Получаем данные из базы
+    profiles = FirstVariantBd.objects.filter(
+        direction_of_preparation=user_data.get('Направление', ''),
+        name_object=user_data.get('Наименование предмета', '')
+    )
+
+    if not profiles.exists():
+        return HttpResponse("Нет данных для отображения", status=404)
+
+    profile_groups = defaultdict(list)
+    profile_data = {}
+
+    for profile in profiles:
+        key = f"{profile.total_hours}_{profile.classroom_hours}_{profile.lectures}_{profile.seminars}_{profile.independent_work}"
+        profile_groups[key].append(profile.profile)
+        profile_data[key] = profile
+
     def replace_placeholders(paragraphs):
         for p in paragraphs:
             full_text = ''.join(run.text for run in p.runs)
@@ -895,24 +909,80 @@ def export_to_word(request):
             # Обработка обычных плейсхолдеров
             for key, value in user_data.items():
                 if key == 'competencies':
-                    continue  # competencies обрабатываем отдельно
-
+                    continue
                 placeholder = f'{{{{{key}}}}}'
-
                 if key in ['Наименование предмета', 'Образовательная программа', 'Направление']:
-                    value = f'«{value}»'  # Добавляем елочки автоматически
-
+                    value = f'«{value}»'
                 if placeholder in full_text:
                     full_text = full_text.replace(placeholder, str(value))
 
-            # Обновляем параграф если изменился
-            if full_text != ''.join(run.text for run in p.runs):
+            # Обработка таблицы volumes
+            if '{{volumes}}' in full_text:
                 for run in p.runs:
                     run.text = ''
-                p.add_run(full_text)
+                for key, profiles_list in profile_groups.items():
+                    profile = profile_data[key]
 
-            # Обработка {{competencies}}
-            if '{{competencies}}' in full_text:
+                    sem_list = []
+                    for sem_field in [profile.exam, profile.test_obj, profile.test_obj_with_mark]:
+                        if sem_field:
+                            sem_list += [s.strip() for s in sem_field.split(',') if s.strip().isdigit()]
+                    sem_list = sorted(set(sem_list), key=int)
+
+                    columns = 2 + len(sem_list)
+                    table = insert_table_after(p, rows=0, cols=columns)
+                    table.style = 'Table Grid'
+
+                    header = table.add_row().cells
+                    header[0].text = 'Вид учебной работы по дисциплине'
+                    header[1].text = 'Всего в (з/е и часах)'
+                    for i, sem in enumerate(sem_list):
+                        header[2 + i].text = f'Семестр {sem}'
+
+                    def add_row(name, values):
+                        row = table.add_row().cells
+                        row[0].text = name
+                        for idx, val in enumerate(values):
+                            row[1 + idx].text = str(val)
+
+                    # Общая трудоемкость
+                    ects_total = f"{profile.ECTS}/{profile.total_hours}"
+                    add_row('Общая трудоемкость дисциплины', [ects_total] + [profile.total_hours] * len(sem_list))
+
+                    add_row('Контактная работа - Аудиторные занятия', [profile.classroom_hours] * (1 + len(sem_list)))
+                    add_row('Лекции', [profile.lectures] * (1 + len(sem_list)))
+                    add_row('Семинары, практические занятия', [profile.seminars] * (1 + len(sem_list)))
+                    add_row('Самостоятельная работа', [profile.independent_work] * (1 + len(sem_list)))
+
+                    # Вид текущего контроля
+                    current_control = []
+                    if profile.control_work: current_control.append("Контрольная работа")
+                    if profile.essay: current_control.append("Реферат")
+                    if profile.calcul_analytic_work: current_control.append("Расчетно-аналитическая работа")
+                    if profile.creative_homework: current_control.append("Творческое задание")
+                    if profile.project_work: current_control.append("Проектная работа")
+                    add_row('Вид текущего контроля', [""] + current_control[:len(sem_list)])
+
+                    # Вид промежуточной аттестации
+                    attestation = []
+                    if profile.exam: attestation.append("Экзамен")
+                    if profile.test_obj: attestation.append("Зачет")
+                    if profile.test_obj_with_mark: attestation.append("Зачет с оценкой")
+                    add_row('Вид промежуточной аттестации', [""] + attestation[:len(sem_list)])
+
+                    # Название профилей
+                    row = table.add_row().cells
+                    row[0].text = f"Профили: {', '.join(profiles_list)}"
+                    row[0].merge(row[1])
+                    for i in range(2, columns):
+                        row[0].merge(row[i])
+
+            elif full_text != ''.join(run.text for run in p.runs):
+                    for run in p.runs:
+                        run.text = ''
+                    p.add_run(full_text)
+
+            elif '{{competencies}}' in full_text:
                 # Удаляем текст метки
                 for run in p.runs:
                     run.text = ''
@@ -959,16 +1029,16 @@ def export_to_word(request):
                         for cell in row:
                             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    # Заменяем метки в параграфах документа
+    # Обработка параграфов
     replace_placeholders(doc.paragraphs)
 
-    # Заменяем метки в таблицах (если в шаблоне вдруг есть таблицы)
+    # Обработка таблиц
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 replace_placeholders(cell.paragraphs)
 
-    # Отдаем файл пользователю
+    # Отправка файла
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = 'attachment; filename=program.docx'
     doc.save(response)
