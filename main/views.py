@@ -1066,17 +1066,22 @@ def export_to_word(request):
                 for run in p.runs:
                     run.text = ''
 
+                topics_data = user_data.get("topics", {})
                 curriculum_data = user_data.get("curriculum", {})
 
-                for profile_key, topics in curriculum_data.items():
-                    # Название профиля
-                    p.insert_paragraph_before(f"Профиль: {profile_key}", style='Normal')
+                for key, profile_list in profile_groups.items():
+                    profile_key = ', '.join(profile_list)
+                    topics = topics_data.get(profile_key, [])
+                    summary = profile_data.get(key)
+                    profile_curriculum = curriculum_data.get(f"Профили: {profile_key}", {})
 
-                    # Вставляем таблицу
-                    table = insert_table_after(p, rows=1, cols=8)
+                    # Название профиля
+                    paragraph_before = p.insert_paragraph_before(f"Профиль: {profile_key}", style='Normal')
+
+                    table = insert_table_after(paragraph_before, rows=1, cols=8)
                     table.style = 'Table Grid'
 
-                    # Заполняем заголовки
+                    # Заголовки таблицы
                     hdr1 = table.rows[0].cells
                     hdr1[0].text = '№ п/п'
                     hdr1[1].text = 'Наименование тем (разделов) дисциплины'
@@ -1086,58 +1091,64 @@ def export_to_word(request):
                     hdr1[7].text = 'Формы текущего контроля успеваемости'
                     hdr1[3].merge(hdr1[4]).merge(hdr1[5])
 
-                    # Заголовки второго уровня
                     row = table.add_row().cells
                     row[3].text = 'Общая, в т.ч.:'
                     row[4].text = 'Лекции'
                     row[5].text = 'Семинары, практические занятия'
 
-                    # Заполняем данные по темам
-                    for i, (topic_key, values) in enumerate(topics.items(), 1):
+                    # Заполнение тем
+                    for i, topic_info in enumerate(topics, 1):
+                        topic_name = topic_info.get('topic', '')
+                        topic_hours = profile_curriculum.get(topic_name, {})
+
                         row = table.add_row().cells
                         row[0].text = str(i)
-                        row[1].text = topic_key  # Название темы
-                        row[2].text = str(values.get('classroom', ''))
-                        row[3].text = str(values.get('lectures', ''))
-                        row[4].text = str(values.get('seminars', ''))
-                        row[5].text = str(values.get('independent', ''))
-                        row[6].text = 'Дискуссия, защита практических заданий'
+                        row[1].text = topic_name
+                        row[2].text = str(int(topic_hours.get('classroom', ''))+int(topic_hours.get('independent', '')))
+                        row[3].text = topic_hours.get('classroom', '')
+                        row[4].text = topic_hours.get('lectures', '')
+                        row[5].text = topic_hours.get('seminars', '')
+                        row[6].text = topic_hours.get('independent', '')
+                        row[7].text = 'Дискуссия, защита практических заданий'
 
-                    # Получаем данные по профилю для строки "В целом по дисциплине"
-                    summary = profile_data.get(profile_key, {})
-                    total_hours = summary.get('total_hours', 0)
-                    classroom_hours = summary.get('classroom_hours', 0)
-                    lectures = summary.get('lectures', 0)
-                    seminars = summary.get('seminars', 0)
-                    independent_work = summary.get('independent_work', 0)
+                    # Форма контроля
+                    control_form = "Согласно учебному плану: "
+                    if int(summary.control_work) > 0:
+                        control_form += "Контрольная работа"
+                    elif int(summary.essay) > 0:
+                        control_form += "Эссе"
+                    elif int(summary.calcul_analytic_work) > 0:
+                        control_form += "Расчетно-аналитическая работа"
+                    elif int(summary.creative_homework) > 0:
+                        control_form += "Домашнее творческое задание"
+                    elif int(summary.project_work) > 0:
+                        control_form += "Проектная работа"
 
                     # Строка "В целом по дисциплине"
                     row = table.add_row().cells
                     row[0].merge(row[1])
                     row[0].text = 'В целом по дисциплине'
-                    row[2].text = str(total_hours)
-                    row[3].text = str(classroom_hours)
-                    row[4].text = str(lectures)
-                    row[5].text = str(seminars)
-                    row[6].text = str(independent_work)
-                    row[7].text = 'Согласно учебному плану'  # или любая другая логика для формы контроля
+                    row[2].text = str(summary.total_hours)
+                    row[3].text = str(summary.classroom_hours)
+                    row[4].text = str(summary.lectures)
+                    row[5].text = str(summary.seminars)
+                    row[6].text = str(summary.independent_work)
+                    row[7].text = control_form
 
                     # Строка "Итого в %"
                     row = table.add_row().cells
                     row[0].merge(row[1])
                     row[0].text = 'Итого в %'
                     row[2].text = '100'
-
-                    # Вычисляем проценты для всех колонок
-                    if total_hours > 0:
-                        row[3].text = str(round((classroom_hours / total_hours) * 100))
-                        row[4].text = str(round((lectures / classroom_hours) * 100)) if classroom_hours else '0'
-                        row[5].text = str(round((seminars / classroom_hours) * 100)) if classroom_hours else '0'
-                        row[6].text = str(round((independent_work / total_hours) * 100))
-                    else:
-                        row[3].text = row[4].text = row[5].text = row[6].text = '0'
-
-                    row[7].text = ''  # Для колонки "Формы текущего контроля успеваемости" оставляем пустым
+                    row[3].text = str(
+                        round((summary.classroom_hours / summary.total_hours) * 100)) if summary.total_hours else '0'
+                    row[4].text = str(
+                        round((summary.lectures / summary.classroom_hours) * 100)) if summary.classroom_hours else '0'
+                    row[5].text = str(
+                        round((summary.seminars / summary.classroom_hours) * 100)) if summary.classroom_hours else '0'
+                    row[6].text = str(
+                        round((summary.independent_work / summary.total_hours) * 100)) if summary.total_hours else '0'
+                    row[7].text = ''
 
     # Обработка параграфов
     replace_placeholders(doc.paragraphs)
