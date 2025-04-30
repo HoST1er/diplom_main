@@ -16,7 +16,8 @@ from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.generic import FormView
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
-from docx.shared import Pt
+from docx.shared import Pt, Inches
+from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 from diplommain import settings
@@ -871,20 +872,30 @@ def example_tasks(request):
 
 
 def insert_table_after(paragraph, rows, cols):
-    new_doc = Document()
-    table = new_doc.add_table(rows=rows, cols=cols)
-    tbl = table._tbl
-    paragraph._p.addnext(tbl)
-    return table
-
-def insert_paragraph_after(paragraph, text):
+    # Вставляем новый параграф после указанного
     new_p = OxmlElement("w:p")
     paragraph._p.addnext(new_p)
-    new_para = paragraph._parent.add_paragraph()
-    new_para._element = new_p
-    new_para.add_run(text)
-    return new_para
 
+    # Получаем объект Paragraph из этого XML
+    new_paragraph = paragraph._parent.add_paragraph()
+    new_paragraph._element = new_p
+
+    # Создаем таблицу с шириной (например, 6 дюймов)
+    table = paragraph._parent.add_table(rows=rows, cols=cols, width=Inches(6.0))
+
+    # Вставляем таблицу сразу после созданного параграфа
+    tbl = table._tbl
+    new_p.addnext(tbl)
+
+    return table
+
+def insert_paragraph_after(paragraph, text=''):
+    new_p = OxmlElement("w:p")
+    paragraph._p.addnext(new_p)
+    new_para = Paragraph(new_p, paragraph._parent)
+    if text:
+        run = new_para.add_run(text)
+    return new_para
 def export_to_word(request):
     template_path = 'C:/Users/andru/PycharmProjects/diplommain/main/templates/docx_templates/template_with_placeholders.docx'
 
@@ -932,8 +943,8 @@ def export_to_word(request):
                 for key, profiles_list in profile_groups.items():
                     profile = profile_data[key]
 
-                    # Параграф с профилями над таблицей
-                    profiles_paragraph = insert_paragraph_after(p, f"Профили: {', '.join(profiles_list)}")
+                    # Вставляем абзац с профилями над таблицей — сразу после тега
+                    profiles_para = insert_paragraph_after(p, f"Профили: {', '.join(profiles_list)}")
 
                     sem_list = []
                     for sem_field in [profile.exam, profile.test_obj, profile.test_obj_with_mark]:
@@ -942,7 +953,8 @@ def export_to_word(request):
                     sem_list = sorted(set(sem_list), key=int)
 
                     columns = 2 + len(sem_list)
-                    table = insert_table_after(profiles_paragraph, rows=0, cols=columns)
+                    # Таблица вставляется прямо после текущего параграфа с тегом
+                    table = insert_table_after(profiles_para, rows=0, cols=columns)
                     table.style = 'Table Grid'
 
                     header = table.add_row().cells
@@ -1029,6 +1041,25 @@ def export_to_word(request):
 
                         for cell in row:
                             cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            elif '{{content}}' in full_text:
+                # Удаляем текст метки
+                for run in p.runs:
+                    run.text = ''
+
+                # Получаем первую группу тем
+                first_group_key = next(iter(user_data.get('topics', {})), None)
+                if first_group_key:
+                    topics_list = user_data['topics'][first_group_key]
+
+                    for item in topics_list:
+                        topic_para = insert_paragraph_after(p, '')
+                        topic_run = topic_para.add_run(item['topic'])
+                        topic_run.bold = True
+                        topic_para.paragraph_format.first_line_indent = Inches(0.5)
+
+                        desc_para = insert_paragraph_after(topic_para, item['description'])
+                        desc_para.paragraph_format.first_line_indent = Inches(0.5)
 
     # Обработка параграфов
     replace_placeholders(doc.paragraphs)
