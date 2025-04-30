@@ -1061,6 +1061,84 @@ def export_to_word(request):
                         desc_para = insert_paragraph_after(topic_para, item['description'])
                         desc_para.paragraph_format.first_line_indent = Inches(0.5)
 
+            # Обработка плейсхолдера {{curriculum}}
+            elif '{{syllabus}}' in full_text:
+                for run in p.runs:
+                    run.text = ''
+
+                curriculum_data = user_data.get("curriculum", {})
+
+                for profile_key, topics in curriculum_data.items():
+                    # Название профиля
+                    p.insert_paragraph_before(f"Профиль: {profile_key}", style='Normal')
+
+                    # Вставляем таблицу
+                    table = insert_table_after(p, rows=1, cols=8)
+                    table.style = 'Table Grid'
+
+                    # Заполняем заголовки
+                    hdr1 = table.rows[0].cells
+                    hdr1[0].text = '№ п/п'
+                    hdr1[1].text = 'Наименование тем (разделов) дисциплины'
+                    hdr1[2].text = 'Всего'
+                    hdr1[3].text = 'Контактная работа - Аудиторная работа'
+                    hdr1[6].text = 'Самостоятельная работа'
+                    hdr1[7].text = 'Формы текущего контроля успеваемости'
+                    hdr1[3].merge(hdr1[4]).merge(hdr1[5])
+
+                    # Заголовки второго уровня
+                    row = table.add_row().cells
+                    row[3].text = 'Общая, в т.ч.:'
+                    row[4].text = 'Лекции'
+                    row[5].text = 'Семинары, практические занятия'
+
+                    # Заполняем данные по темам
+                    for i, (topic_key, values) in enumerate(topics.items(), 1):
+                        row = table.add_row().cells
+                        row[0].text = str(i)
+                        row[1].text = topic_key  # Название темы
+                        row[2].text = str(values.get('classroom', ''))
+                        row[3].text = str(values.get('lectures', ''))
+                        row[4].text = str(values.get('seminars', ''))
+                        row[5].text = str(values.get('independent', ''))
+                        row[6].text = 'Дискуссия, защита практических заданий'
+
+                    # Получаем данные по профилю для строки "В целом по дисциплине"
+                    summary = profile_data.get(profile_key, {})
+                    total_hours = summary.get('total_hours', 0)
+                    classroom_hours = summary.get('classroom_hours', 0)
+                    lectures = summary.get('lectures', 0)
+                    seminars = summary.get('seminars', 0)
+                    independent_work = summary.get('independent_work', 0)
+
+                    # Строка "В целом по дисциплине"
+                    row = table.add_row().cells
+                    row[0].merge(row[1])
+                    row[0].text = 'В целом по дисциплине'
+                    row[2].text = str(total_hours)
+                    row[3].text = str(classroom_hours)
+                    row[4].text = str(lectures)
+                    row[5].text = str(seminars)
+                    row[6].text = str(independent_work)
+                    row[7].text = 'Согласно учебному плану'  # или любая другая логика для формы контроля
+
+                    # Строка "Итого в %"
+                    row = table.add_row().cells
+                    row[0].merge(row[1])
+                    row[0].text = 'Итого в %'
+                    row[2].text = '100'
+
+                    # Вычисляем проценты для всех колонок
+                    if total_hours > 0:
+                        row[3].text = str(round((classroom_hours / total_hours) * 100))
+                        row[4].text = str(round((lectures / classroom_hours) * 100)) if classroom_hours else '0'
+                        row[5].text = str(round((seminars / classroom_hours) * 100)) if classroom_hours else '0'
+                        row[6].text = str(round((independent_work / total_hours) * 100))
+                    else:
+                        row[3].text = row[4].text = row[5].text = row[6].text = '0'
+
+                    row[7].text = ''  # Для колонки "Формы текущего контроля успеваемости" оставляем пустым
+
     # Обработка параграфов
     replace_placeholders(doc.paragraphs)
 
