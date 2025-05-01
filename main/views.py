@@ -1196,6 +1196,15 @@ def export_to_word(request):
                     row[1].text = '\n'.join(f'– {q}' for q in item.get("questions", []))
                     row[2].text = item.get("form", "")
 
+            elif '{{questions_to_control}}' in full_text:
+                for run in p.runs:
+                    run.text = ''
+
+                questions = user_data.get('questions_work', [])
+
+                for i, question in enumerate(questions, 1):
+                    new_paragraph = p.insert_paragraph_before(f"{i}. {question}", style='Normal')
+
     # Обработка параграфов
     replace_placeholders(doc.paragraphs)
 
