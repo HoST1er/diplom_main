@@ -1150,6 +1150,29 @@ def export_to_word(request):
                         round((summary.independent_work / summary.total_hours) * 100)) if summary.total_hours else '0'
                     row[7].text = ''
 
+            elif '{{content_for_seminars}}' in full_text:
+                for run in p.runs:
+                    run.text = ''
+
+                seminars_content = user_data.get("seminars_content", [])
+
+                # Вставляем таблицу после текущего абзаца
+                table = insert_table_after(p, rows=1, cols=3)
+                table.style = 'Table Grid'
+
+                # Заголовки таблицы
+                hdr = table.rows[0].cells
+                hdr[0].text = 'Наименование тем (разделов) дисциплины'
+                hdr[1].text = 'Перечень вопросов, отводимых на самостоятельное освоение'
+                hdr[2].text = 'Формы внеаудиторной самостоятельной работы'
+
+                # Заполнение строк таблицы
+                for item in seminars_content:
+                    row = table.add_row().cells
+                    row[0].text = item.get("topic", "")
+                    row[1].text = '\n'.join(f'– {q}' for q in item.get("questions", []))
+                    row[2].text = item.get("form", "")
+
     # Обработка параграфов
     replace_placeholders(doc.paragraphs)
 
