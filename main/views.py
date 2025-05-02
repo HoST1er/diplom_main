@@ -995,52 +995,120 @@ def export_to_word(request):
                         run.text = ''
                     p.add_run(full_text)
 
-            elif '{{competencies}}' in full_text:
-                # Удаляем текст метки
-                for run in p.runs:
-                    run.text = ''
 
-                # Вставляем таблицу прямо после параграфа
+            elif '{{competencies}}' in full_text:
+
+                for run in p.runs:
+                    run.text = run.text.replace('{{competencies}}', '')
+
                 table = insert_table_after(p, rows=1, cols=4)
+
                 table.style = 'Table Grid'
 
-                # Заголовки таблицы
-                headers = ['Код компетенции', 'Наименование компетенции', 'Индикаторы достижения компетенции', 'Результаты обучения']
-                for i, header in enumerate(headers):
-                    cell = table.rows[0].cells[i]
-                    cell.text = header
-                    para = cell.paragraphs[0]
+                # Заголовки
+
+                headers = ['Код компетенции', 'Наименование компетенции', 'Индикаторы достижения компетенции',
+                           'Результаты обучения']
+
+                hdr_cells = table.rows[0].cells
+
+                for i, text in enumerate(headers):
+                    hdr_cells[i].text = text
+
+                    para = hdr_cells[i].paragraphs[0]
+
                     para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
                     run = para.runs[0]
+
                     run.font.bold = True
-                    run.font.size = Pt(12)
 
-                # Компетенции по профилям
-                competencies_by_profile = defaultdict(list)
-                for comp in user_data['competencies']:
-                    competencies_by_profile[comp['profile']].append(comp)
+                    run.font.size = Pt(11)
 
-                for profile, comps in competencies_by_profile.items():
+                # Группировка по профилям
+
+                grouped = defaultdict(list)
+
+                for c in user_data['competencies']:
+                    grouped[c['profile']].append(c)
+
+                for profile, competencies in grouped.items():
+
                     # Строка профиля
+
                     profile_row = table.add_row().cells
-                    profile_row[0].text = profile
+
+                    profile_cell = profile_row[0]
+
+                    profile_cell.text = profile
+
+                    for i in range(1, 4):
+                        profile_row[i].text = ''
+
                     profile_row[0].merge(profile_row[1]).merge(profile_row[2]).merge(profile_row[3])
-                    para = profile_row[0].paragraphs[0]
+
+                    para = profile_cell.paragraphs[0]
+
                     para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    run = para.runs[0]
-                    run.font.bold = True
-                    run.font.size = Pt(12)
 
-                    # Строки компетенций
-                    for comp in comps:
-                        row = table.add_row().cells
-                        row[0].text = comp['competence_code']
-                        row[1].text = comp['competence_name']
-                        row[2].text = ', '.join(comp['indicators'])
-                        row[3].text = f"Знать: {', '.join(comp['know'])}\nУметь: {', '.join(comp['do'])}"
+                    para.runs[0].bold = True
 
-                        for cell in row:
-                            cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    para.runs[0].font.size = Pt(12)
+
+                    # Компетенции
+
+                    for comp in competencies:
+
+                        indicators = comp['indicators']
+
+                        knows = comp['know']
+
+                        dos = comp['do']
+
+                        num_rows = len(indicators)
+
+                        for idx in range(num_rows):
+
+                            row = table.add_row().cells
+
+                            # Удаляем переносы строк, если есть
+
+                            code = comp['competence_code'].replace('\n', ' ').strip()
+
+                            name = comp['competence_name'].replace('\n', ' ').strip()
+
+                            # Только первая строка — с кодом и названием
+
+                            if idx == 0:
+
+                                row[0].text = code
+
+                                row[1].text = name
+
+                            else:
+
+                                row[0].text = ''
+
+                                row[1].text = ''
+
+                            # Индикатор
+
+                            row[2].text = indicators[idx]
+
+                            # Результаты обучения по индексу
+
+                            know_text = knows[idx] if idx < len(knows) else ''
+
+                            do_text = dos[idx] if idx < len(dos) else ''
+
+                            row[3].text = f"Знать: {know_text}\nУметь: {do_text}"
+
+                            # Выравнивание
+
+                            for cell in row:
+                                para = cell.paragraphs[0]
+
+                                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
             elif '{{content}}' in full_text:
                 # Удаляем текст метки
