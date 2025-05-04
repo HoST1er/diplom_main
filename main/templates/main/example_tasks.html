@@ -12,14 +12,14 @@
             flex-direction: column;
             align-items: center;
             color: #fff;
-            width: 150%;  /* Увеличим ширину блока */
-            margin: 0 auto; /* Центрируем блок */
+            width: 90%;
+            margin: 0 auto;
         }
-        table {
-            width: 100%;  /* Сделаем таблицу на всю ширину блока */
-            max-width: 1200px;  /* Максимальная ширина таблицы */
-            border-collapse: collapse;
 
+        table {
+            width: 150%;
+            border-collapse: collapse;
+            table-layout: fixed;
         }
 
         th, td {
@@ -27,24 +27,38 @@
             padding: 10px;
             text-align: left;
             color: white;
+            word-wrap: break-word;
+            white-space: normal;
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #2c2c2c;
+        }
+
+        .profile-header {
+            font-weight: bold;
+            text-align: left;
+            background-color: #2c2c2c;
+            color: white;
+        }
+
+        .add-button, .remove-button {
+            padding: 5px;
+            margin-left: 5px;
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 30px;
+
         }
 
         .add-button {
             background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-            padding: 5px;
-            margin-left: 5px;
         }
 
         .remove-button {
             background-color: #ff4d4d;
-            color: white;
-            border: none;
-            cursor: pointer;
-            padding: 5px;
-            margin-left: 5px;
         }
 
         .submit-button {
@@ -61,17 +75,15 @@
         .submit-button:hover {
             background-color: #0056b3;
         }
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
+
+        .input-row {
+            display: flex;
+            flex-direction: column;
         }
 
-        main {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+        .input-row input {
+            margin: 5px 0;
+            width: 100%;
         }
     </style>
 </head>
@@ -79,8 +91,8 @@
 
 <form method="POST" id="controlTasksForm">
     {% csrf_token %}
-    <div class='features1'>
-    <h1>Типовые контрольные задания</h1>
+    <div class="features1">
+        <h1>Типовые контрольные задания</h1>
         <table>
             <thead>
                 <tr>
@@ -93,113 +105,137 @@
             <tbody>
                 {% for profile, competencies in competencies_by_profile.items %}
                     <tr>
-                        <td colspan="4" style="font-weight: bold; text-align: left; background-color: #2c2c2c;">Для профиля «{{ profile }}» </td>
+                        <td colspan="4" class="profile-header">Для профиля «{{ profile }}»</td>
                     </tr>
                     {% for competence in competencies %}
-                        <tr>
-                            <td rowspan="{{ competence.rowspan }}">
-                                <strong>{{ competence.competence_code }} <br>{{ competence.competence_name }}</strong>
-                            </td>
-                            {% for indicator, know, do in competence.indicators_with_know_do %}
+                        {% for indicator_tuple in competence.indicators_with_know_do %}
+                            {% with indicator=indicator_tuple.0 know=indicator_tuple.1 do=indicator_tuple.2 %}
                                 <tr>
+                                    <td>
+                                        <strong>{{ competence.competence_code }}</strong><br>{{ competence.competence_name }}
+                                    </td>
                                     <td>{{ indicator }}</td>
                                     <td>
                                         <div><strong>Знания:</strong> {{ know }}</div>
                                         <div><strong>Умения:</strong> {{ do }}</div>
                                     </td>
                                     <td>
-                                        <table class="task-table">
-                                            <tr class="input-row">
-                                                <td><input type="text" name="task_{{ competence.competence_code }}_{{ loop.index }}" /></td>
-                                                <td class="controls">
-                                                    <button type="button" class="add-button" onclick="addInputBox(this)">+</button>
-                                                    <button type="button" class="remove-button" onclick="removeInputBox(this)">-</button>
-                                                </td>
-                                            </tr>
-                                        </table>
+                                        <div class="input-row">
+                                            <input type="text" name="task_{{ competence.competence_code }}_{{ forloop.counter0 }}" />
+                                            <button type="button" class="add-button" onclick="addInputBox(this)">+</button>
+                                            <button type="button" class="remove-button" onclick="removeInputBox(this)">-</button>
+                                        </div>
+                                        <input type="hidden" id="competence_name_{{ competence.competence_code }}" value="{{ competence.competence_name }}" />
+                                        <input type="hidden" id="indicator_{{ competence.competence_code }}_{{ forloop.counter0 }}" value="{{ indicator }}" />
+                                        <input type="hidden" id="know_{{ competence.competence_code }}_{{ forloop.counter0 }}" value="{{ know }}" />
+                                        <input type="hidden" id="do_value_{{ competence.competence_code }}_{{ forloop.counter0 }}" value="{{ do }}" />
                                     </td>
                                 </tr>
-                            {% endfor %}
-                        </tr>
+                            {% endwith %}
+                        {% endfor %}
                     {% endfor %}
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-        <!-- Кнопка отправки данных -->
     <button type="submit" class="submit-button">Далее</button>
 </form>
-
 
 <script>
     function addInputBox(button) {
         const row = button.closest('.input-row');
-        const table = row.closest('table');
-        const newRow = document.createElement('tr');
-        newRow.classList.add('input-row');
-
-        const inputCell = document.createElement('td');
-        inputCell.innerHTML = '<input type="text" name="task_new" />';
-        newRow.appendChild(inputCell);
-
-        const controlsCell = document.createElement('td');
-        controlsCell.classList.add('controls');
-        controlsCell.innerHTML = '<button type="button" class="add-button" onclick="addInputBox(this)">+</button> ' +
-                                 '<button type="button" class="remove-button" onclick="removeInputBox(this)">-</button>';
-        newRow.appendChild(controlsCell);
-
-        table.appendChild(newRow);
+        const newInput = document.createElement('input');
+        newInput.setAttribute('type', 'text');
+        newInput.setAttribute('name', row.querySelector('input[type="text"]').name);
+        row.insertBefore(newInput, button);
     }
 
     function removeInputBox(button) {
         const row = button.closest('.input-row');
-        const table = row.closest('table');
-
-        if (table.querySelectorAll('.input-row').length > 1) {
-            row.remove();
+        const inputs = row.querySelectorAll('input[type="text"]');
+        if (inputs.length > 1) {
+            row.removeChild(inputs[inputs.length - 1]);
         }
     }
 
     document.getElementById("controlTasksForm").onsubmit = function(event) {
         event.preventDefault();
 
-        const formData = new FormData(event.target);
-        const controlTasks = {};
+        const form = event.target;
+        const inputElements = form.querySelectorAll('input[name^="task_"]');
+        const controlTasks = [];
 
-        // Пробежимся по всем полям и формируем правильный ключ для каждой задачи
-        formData.forEach((value, key) => {
-            const [competenceCode, taskIndex] = key.split('_');
-            if (!controlTasks[competenceCode]) {
-                controlTasks[competenceCode] = [];
+        inputElements.forEach(input => {
+            const nameParts = input.name.split('_');
+            if (nameParts.length < 3) return;
+
+            const competenceCode = nameParts[1];
+            const taskIndex = nameParts[2];
+
+            const indicatorElement = document.querySelector(`#indicator_${competenceCode}_${taskIndex}`);
+            const knowElement = document.querySelector(`#know_${competenceCode}_${taskIndex}`);
+            const doValueElement = document.querySelector(`#do_value_${competenceCode}_${taskIndex}`);
+            const competenceNameElement = document.querySelector(`#competence_name_${competenceCode}`);
+
+            const indicator = indicatorElement?.value || '';
+            const know = knowElement?.value || '';
+            const doValue = doValueElement?.value || '';
+            const competenceName = competenceNameElement?.value || '';
+
+            let profile = '';
+            let currentRow = input.closest('tr');
+            while (currentRow && !profile) {
+                const profileRow = currentRow.previousElementSibling;
+                if (profileRow && profileRow.children.length === 1 && profileRow.children[0].textContent.includes('Для профиля «')) {
+                    profile = profileRow.children[0].textContent.replace('Для профиля «', '').replace('»', '').trim();
+                    break;
+                }
+                currentRow = profileRow;
             }
-            controlTasks[competenceCode].push({
-                taskIndex: taskIndex,
-                taskValue: value
-            });
+
+            let existingEntry = controlTasks.find(task =>
+                task.profile === profile &&
+                task.competence_code === competenceCode &&
+                task.indicator === indicator
+            );
+
+            if (existingEntry) {
+                existingEntry.task.push(input.value);
+            } else {
+                controlTasks.push({
+                    profile: profile,
+                    competence_code: competenceCode,
+                    competence_name: competenceName,
+                    indicator: indicator,
+                    know: know,
+                    do_value: doValue,
+                    task: [input.value]
+                });
+            }
         });
 
         fetch("{% url 'save_user_data7' %}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             },
             body: JSON.stringify({ control_tasks: controlTasks })
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === "success") {
-                // Перенаправление на другую страницу после успешного сохранения
-                window.location.href = "{% url 'example_quest_to_test' %}";  // Замените 'your_next_page' на нужный URL
+                window.location.href = "{% url 'example_quest_to_test' %}";
             } else {
-                alert('Ошибка при сохранении данных');
+                alert('Ошибка при сохранении данных: ' + (data.message || ''));
             }
         })
         .catch(error => {
             console.error('Ошибка:', error);
             alert('Ошибка при отправке данных');
         });
-    }
+    };
 </script>
 
 </body>

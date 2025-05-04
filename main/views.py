@@ -618,33 +618,120 @@ def save_user_data6(request):
 
     return JsonResponse({"status": "invalid request"}, status=400)
 
+# @csrf_exempt
+# def save_user_data7(request):
+#     if request.method == "POST":
+#         try:
+#             data = json.loads(request.body)
+#             input_data = data.get("control_tasks_input", {})
+#
+#             competencies = user_data.get("competencies", [])
+#             enriched_competencies_by_profile = {}
+#
+#             for comp in competencies:
+#                 code = comp.get("competence_code")
+#                 profile = comp.get("profile")
+#                 name = comp.get("competence_name")
+#                 indicators = comp.get("indicators", [])
+#                 know = comp.get("know", [])
+#                 do = comp.get("do", [])
+#
+#                 tasks_raw = input_data.get(code, {})
+#                 tasks_ordered = []
+#                 for idx in range(len(indicators)):
+#                     idx_str = str(idx)
+#                     tasks_for_indicator = tasks_raw.get(idx_str, [])
+#                     tasks_ordered.append(tasks_for_indicator)
+#
+#                 competence_data = {
+#                     "competence_code": code,
+#                     "competence_name": name,
+#                     "indicators": indicators,
+#                     "know": know,
+#                     "do": do,
+#                     "tasks": tasks_ordered
+#                 }
+#
+#                 if profile not in enriched_competencies_by_profile:
+#                     enriched_competencies_by_profile[profile] = []
+#
+#                 enriched_competencies_by_profile[profile].append(competence_data)
+#
+#             user_data["control_tasks"] = enriched_competencies_by_profile
+#
+#             return JsonResponse({"status": "success"})
+#
+#         except Exception as e:
+#             return JsonResponse({"status": "error", "message": str(e)}, status=400)
+#
+#     return JsonResponse({"status": "invalid request"}, status=400)
+
+# @csrf_exempt
+# def save_user_data7(request):
+#     if request.method == "POST":
+#         try:
+#             # Загружаем данные из тела запроса
+#             data = json.loads(request.body)
+#
+#             # Инициализация переменной для контрольных заданий
+#             control_tasks_data = []
+#
+#             # Проверяем, есть ли в данных ключ 'control_tasks'
+#             if "control_tasks" in data:
+#                 control_tasks_data = data["control_tasks"]
+#
+#             # Сохраняем контрольные задания в user_data
+#             user_data["control_tasks"] = control_tasks_data
+#
+#             #print("Данные успешно сохранены:", user_data)  # Проверка данных
+#
+#             # Возвращаем успешный ответ
+#             return JsonResponse({"status": "success"})
+#         except Exception as e:
+#             # Логирование ошибки и возврат ошибки с описанием
+#             print("Ошибка при обработке данных:", str(e))
+#             return JsonResponse({"status": "error", "message": str(e)}, status=400)
+#
+#     # Возвращаем ошибку, если запрос не POST
+#     return JsonResponse({"status": "invalid request"}, status=400)
+
 @csrf_exempt
 def save_user_data7(request):
+    #global user_data  # <-- критично
     if request.method == "POST":
         try:
-            # Загружаем данные из тела запроса
             data = json.loads(request.body)
 
-            # Инициализация переменной для контрольных заданий
-            control_tasks_data = []
+            if "control_tasks" not in data:
+                return JsonResponse({"status": "error", "message": "Нет ключа control_tasks"}, status=400)
 
-            # Проверяем, есть ли в данных ключ 'control_tasks'
-            if "control_tasks" in data:
-                control_tasks_data = data["control_tasks"]
+            control_tasks_input = data["control_tasks"]
+            structured_tasks = []
 
-            # Сохраняем контрольные задания в user_data
-            user_data["control_tasks"] = control_tasks_data
+            for task_entry in control_tasks_input:
+                required_keys = ["competence_code", "know", "do_value", "task", 'profile', 'indicator']
+                if not all(key in task_entry for key in required_keys):
+                    continue
 
-            #print("Данные успешно сохранены:", user_data)  # Проверка данных
+                structured_tasks.append({
+                    "profile": task_entry['profile'],
+                    "competence_code": task_entry["competence_code"],
+                    "indicator": task_entry['indicator'] if isinstance(task_entry['indicator'], list) else [
+                        task_entry['indicator']],
+                    "know": task_entry["know"] if isinstance(task_entry["know"], list) else [task_entry["know"]],
+                    "do_value": task_entry["do_value"] if isinstance(task_entry["do_value"], list) else [
+                        task_entry["do_value"]],
+                    "task": task_entry["task"] if isinstance(task_entry["task"], list) else [task_entry["task"]],
+                })
 
-            # Возвращаем успешный ответ
+            user_data["control_tasks"] = structured_tasks
+            #print("Сохранено в user_data['control_tasks']:", user_data["control_tasks"])
+
             return JsonResponse({"status": "success"})
         except Exception as e:
-            # Логирование ошибки и возврат ошибки с описанием
             print("Ошибка при обработке данных:", str(e))
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
-    # Возвращаем ошибку, если запрос не POST
     return JsonResponse({"status": "invalid request"}, status=400)
 
 @csrf_exempt
