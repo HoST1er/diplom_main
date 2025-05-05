@@ -695,44 +695,88 @@ def save_user_data6(request):
 #     # Возвращаем ошибку, если запрос не POST
 #     return JsonResponse({"status": "invalid request"}, status=400)
 
-@csrf_exempt
+# @csrf_exempt
+# def save_user_data7(request):
+#     #global user_data  # <-- критично
+#     if request.method == "POST":
+#         try:
+#             data = json.loads(request.body)
+#
+#             if "control_tasks" not in data:
+#                 return JsonResponse({"status": "error", "message": "Нет ключа control_tasks"}, status=400)
+#
+#             control_tasks_input = data["control_tasks"]
+#             structured_tasks = []
+#
+#             for task_entry in control_tasks_input:
+#                 required_keys = ["competence_code", "know", "do_value", "task", 'profile', 'indicator']
+#                 if not all(key in task_entry for key in required_keys):
+#                     continue
+#
+#                 structured_tasks.append({
+#                     "profile": task_entry['profile'],
+#                     "competence_code": task_entry["competence_code"],
+#                     "indicator": task_entry['indicator'] if isinstance(task_entry['indicator'], list) else [
+#                         task_entry['indicator']],
+#                     "know": task_entry["know"] if isinstance(task_entry["know"], list) else [task_entry["know"]],
+#                     "do_value": task_entry["do_value"] if isinstance(task_entry["do_value"], list) else [
+#                         task_entry["do_value"]],
+#                     "task": task_entry["task"] if isinstance(task_entry["task"], list) else [task_entry["task"]],
+#                 })
+#
+#             user_data["control_tasks"] = structured_tasks
+#             #print("Сохранено в user_data['control_tasks']:", user_data["control_tasks"])
+#
+#             return JsonResponse({"status": "success"})
+#         except Exception as e:
+#             print("Ошибка при обработке данных:", str(e))
+#             return JsonResponse({"status": "error", "message": str(e)}, status=400)
+#
+#     return JsonResponse({"status": "invalid request"}, status=400)
+
 def save_user_data7(request):
-    #global user_data  # <-- критично
-    if request.method == "POST":
+    if request.method == 'POST':
         try:
             data = json.loads(request.body)
+            control_tasks = data.get('control_tasks', [])
 
-            if "control_tasks" not in data:
-                return JsonResponse({"status": "error", "message": "Нет ключа control_tasks"}, status=400)
+            if 'control_tasks' not in user_data:
+                user_data['control_tasks'] = {}
 
-            control_tasks_input = data["control_tasks"]
-            structured_tasks = []
+            for entry in control_tasks:
+                profile = entry['profile']
+                competence_code = entry['competence_code']
+                competence_name = entry['competence_name']
+                indicator = entry['indicator']
+                know = entry['know']
+                do_value = entry['do_value']
+                tasks = entry['task']
 
-            for task_entry in control_tasks_input:
-                required_keys = ["competence_code", "know", "do_value", "task", 'profile', 'indicator']
-                if not all(key in task_entry for key in required_keys):
-                    continue
+                if profile not in user_data['control_tasks']:
+                    user_data['control_tasks'][profile] = []
 
-                structured_tasks.append({
-                    "profile": task_entry['profile'],
-                    "competence_code": task_entry["competence_code"],
-                    "indicator": task_entry['indicator'] if isinstance(task_entry['indicator'], list) else [
-                        task_entry['indicator']],
-                    "know": task_entry["know"] if isinstance(task_entry["know"], list) else [task_entry["know"]],
-                    "do_value": task_entry["do_value"] if isinstance(task_entry["do_value"], list) else [
-                        task_entry["do_value"]],
-                    "task": task_entry["task"] if isinstance(task_entry["task"], list) else [task_entry["task"]],
-                })
+                # Проверка на существующую запись
+                existing = next((item for item in user_data['control_tasks'][profile]
+                                 if item['competence_code'] == competence_code and item['indicator'] == indicator), None)
 
-            user_data["control_tasks"] = structured_tasks
-            #print("Сохранено в user_data['control_tasks']:", user_data["control_tasks"])
+                if existing:
+                    existing['task'].extend(tasks)
+                else:
+                    user_data['control_tasks'][profile].append({
+                        'competence_code': competence_code,
+                        'competence_name': competence_name,
+                        'indicator': indicator,
+                        'know': know,
+                        'do': do_value,
+                        'task': tasks
+                    })
 
-            return JsonResponse({"status": "success"})
+            return JsonResponse({'status': 'success'})
         except Exception as e:
-            print("Ошибка при обработке данных:", str(e))
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
-    return JsonResponse({"status": "invalid request"}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+
 
 @csrf_exempt
 def save_user_data8(request):

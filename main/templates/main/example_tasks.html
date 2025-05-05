@@ -12,7 +12,7 @@
             flex-direction: column;
             align-items: center;
             color: #fff;
-            width: 100%;
+            width: 90%;
             margin: 0 auto;
         }
 
@@ -50,6 +50,7 @@
             border: none;
             cursor: pointer;
             width: 30px;
+
         }
 
         .add-button {
@@ -104,19 +105,15 @@
             <tbody>
                 {% for profile, competencies in competencies_by_profile.items %}
                     <tr>
-                        <td colspan="4" class="profile-header">Для профиля {{ profile }}</td>
+                        <td colspan="4" class="profile-header">Для профиля «{{ profile }}»</td>
                     </tr>
-                    {% with last_competence_code=None %}
                     {% for competence in competencies %}
-                        {% with last_indicator=None %}
                         {% for indicator_tuple in competence.indicators_with_know_do %}
                             {% with indicator=indicator_tuple.0 know=indicator_tuple.1 do=indicator_tuple.2 %}
                                 <tr>
-                                    {% if competence.competence_code != last_competence_code %}
-                                        <td rowspan="{% for comp in competencies %}{% if comp.competence_code == competence.competence_code %}1{% endif %}{% endfor %}">{{ competence.competence_code }}<br>{{ competence.competence_name }}</td>
-                                    {% else %}
-                                        <td></td>
-                                    {% endif %}
+                                    <td>
+                                        <strong>{{ competence.competence_code }}</strong><br>{{ competence.competence_name }}
+                                    </td>
                                     <td>{{ indicator }}</td>
                                     <td>
                                         <div><strong>Знания:</strong> {{ know }}</div>
@@ -134,13 +131,9 @@
                                         <input type="hidden" id="do_value_{{ competence.competence_code }}_{{ forloop.counter0 }}" value="{{ do }}" />
                                     </td>
                                 </tr>
-                                {% with last_competence_code=competence.competence_code %}
-                                {% endwith %}
                             {% endwith %}
                         {% endfor %}
-                        {% endwith %}
                     {% endfor %}
-                    {% endwith %}
                 {% endfor %}
             </tbody>
         </table>
@@ -169,55 +162,68 @@
     document.getElementById("controlTasksForm").onsubmit = function(event) {
         event.preventDefault();
 
-        const form = event.target;
-        const inputElements = form.querySelectorAll('input[name^="task_"]');
         const controlTasks = [];
 
-        inputElements.forEach(input => {
-            const nameParts = input.name.split('_');
-            if (nameParts.length < 3) return;
+        // Ищем все строки таблицы
+        const rows = document.querySelectorAll("tbody tr");
 
-            const competenceCode = nameParts[1];
-            const taskIndex = nameParts[2];
+        let currentProfile = "";
 
-            const indicatorElement = document.querySelector(#indicator_${competenceCode}_${taskIndex});
-            const knowElement = document.querySelector(#know_${competenceCode}_${taskIndex});
-            const doValueElement = document.querySelector(#do_value_${competenceCode}_${taskIndex});
-            const competenceNameElement = document.querySelector(#competence_name_${competenceCode});
+        rows.forEach(row => {
+            const cells = row.children;
 
-            const indicator = indicatorElement?.value || '';
-            const know = knowElement?.value || '';
-            const doValue = doValueElement?.value || '';
-            const competenceName = competenceNameElement?.value || '';
-
-            let profile = '';
-            let currentRow = input.closest('tr');
-            while (currentRow && !profile) {
-                const profileRow = currentRow.previousElementSibling;
-                if (profileRow && profileRow.children.length === 1 && profileRow.children[0].textContent.includes('Для профиля «')) {
-                    profile = profileRow.children[0].textContent.replace('Для профиля «', '').replace('»', '').trim();
-                    break;
+            // Проверяем: это заголовок профиля
+            if (cells.length === 1 && cells[0].classList.contains("profile-header")) {
+                const text = cells[0].textContent.trim();
+                const match = text.match(/Для профиля «(.+?)»/);
+                if (match) {
+                    currentProfile = match[1];
                 }
-                currentRow = profileRow;
+                return; // переход к следующей строке
             }
 
-            let existingEntry = controlTasks.find(task =>
-                task.profile === profile &&
-                task.competence_code === competenceCode &&
-                task.indicator === indicator
+            if (cells.length !== 4) return;
+
+            // Получаем значения из ячеек
+            const competenceCell = cells[0];
+            const indicator = cells[1].textContent.trim();
+            const resultsCell = cells[2];
+            const tasksCell = cells[3];
+
+            const competenceCodeMatch = competenceCell.innerHTML.match(/<strong>(.*?)<\/strong>/);
+            const competenceCode = competenceCodeMatch ? competenceCodeMatch[1] : "";
+            const competenceName = competenceCell.innerText.replace(competenceCode, "").trim();
+
+            const knowMatch = resultsCell.innerHTML.match(/<strong>Знания:<\/strong>\s*(.*?)<br?>/);
+            const doMatch = resultsCell.innerHTML.match(/<strong>Умения:<\/strong>\s*(.*?)$/);
+
+            const know = knowMatch ? knowMatch[1].trim() : resultsCell.innerText.split("Умения:")[0].replace("Знания:", "").trim();
+            const doValue = doMatch ? doMatch[1].trim() : resultsCell.innerText.split("Умения:")[1]?.trim() || "";
+
+            // Собираем задания
+            const taskInputs = tasksCell.querySelectorAll("input[type='text']");
+            const tasks = Array.from(taskInputs).map(input => input.value.trim()).filter(v => v);
+
+            if (tasks.length === 0) return;
+
+            // Проверка на существующую запись
+            let existing = controlTasks.find(entry =>
+                entry.profile === currentProfile &&
+                entry.competence_code === competenceCode &&
+                entry.indicator === indicator
             );
 
-            if (existingEntry) {
-                existingEntry.task.push(input.value);
+            if (existing) {
+                existing.task.push(...tasks);
             } else {
                 controlTasks.push({
-                    profile: profile,
+                    profile: currentProfile,
                     competence_code: competenceCode,
                     competence_name: competenceName,
                     indicator: indicator,
                     know: know,
                     do_value: doValue,
-                    task: [input.value]
+                    task: tasks
                 });
             }
         });
