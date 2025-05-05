@@ -12,7 +12,7 @@
             flex-direction: column;
             align-items: center;
             color: #fff;
-            width: 90%;
+            width: 100%;
             margin: 0 auto;
         }
 
@@ -50,7 +50,6 @@
             border: none;
             cursor: pointer;
             width: 30px;
-
         }
 
         .add-button {
@@ -105,15 +104,19 @@
             <tbody>
                 {% for profile, competencies in competencies_by_profile.items %}
                     <tr>
-                        <td colspan="4" class="profile-header">Для профиля «{{ profile }}»</td>
+                        <td colspan="4" class="profile-header">Для профиля {{ profile }}</td>
                     </tr>
+                    {% with last_competence_code=None %}
                     {% for competence in competencies %}
+                        {% with last_indicator=None %}
                         {% for indicator_tuple in competence.indicators_with_know_do %}
                             {% with indicator=indicator_tuple.0 know=indicator_tuple.1 do=indicator_tuple.2 %}
                                 <tr>
-                                    <td>
-                                        <strong>{{ competence.competence_code }}</strong><br>{{ competence.competence_name }}
-                                    </td>
+                                    {% if competence.competence_code != last_competence_code %}
+                                        <td rowspan="{% for comp in competencies %}{% if comp.competence_code == competence.competence_code %}1{% endif %}{% endfor %}">{{ competence.competence_code }}<br>{{ competence.competence_name }}</td>
+                                    {% else %}
+                                        <td></td>
+                                    {% endif %}
                                     <td>{{ indicator }}</td>
                                     <td>
                                         <div><strong>Знания:</strong> {{ know }}</div>
@@ -131,9 +134,13 @@
                                         <input type="hidden" id="do_value_{{ competence.competence_code }}_{{ forloop.counter0 }}" value="{{ do }}" />
                                     </td>
                                 </tr>
+                                {% with last_competence_code=competence.competence_code %}
+                                {% endwith %}
                             {% endwith %}
                         {% endfor %}
+                        {% endwith %}
                     {% endfor %}
+                    {% endwith %}
                 {% endfor %}
             </tbody>
         </table>
@@ -173,10 +180,10 @@
             const competenceCode = nameParts[1];
             const taskIndex = nameParts[2];
 
-            const indicatorElement = document.querySelector(`#indicator_${competenceCode}_${taskIndex}`);
-            const knowElement = document.querySelector(`#know_${competenceCode}_${taskIndex}`);
-            const doValueElement = document.querySelector(`#do_value_${competenceCode}_${taskIndex}`);
-            const competenceNameElement = document.querySelector(`#competence_name_${competenceCode}`);
+            const indicatorElement = document.querySelector(#indicator_${competenceCode}_${taskIndex});
+            const knowElement = document.querySelector(#know_${competenceCode}_${taskIndex});
+            const doValueElement = document.querySelector(#do_value_${competenceCode}_${taskIndex});
+            const competenceNameElement = document.querySelector(#competence_name_${competenceCode});
 
             const indicator = indicatorElement?.value || '';
             const know = knowElement?.value || '';
