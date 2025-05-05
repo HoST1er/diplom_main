@@ -1354,11 +1354,6 @@ def export_to_word(request):
                             # Типовые задания
                             tasks = item.get('task', [])
                             if isinstance(tasks, list):
-                                # for task in tasks:
-                                #     if task.strip():
-                                #         row[3].text = f'Задание {count}. {task}' + '\n'
-                                #
-                                #     count+=1
                                 row[3].text = '\n'.join(f'Задание {i+1}. {task}' for i, task in enumerate(tasks) if task.strip())
                             else:
                                 row[3].text = str(tasks)
