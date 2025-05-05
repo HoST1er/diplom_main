@@ -1117,7 +1117,7 @@ def export_to_word(request):
 
                             do_text = dos[idx] if idx < len(dos) else ''
 
-                            row[3].text = f"Знать: {know_text}\nУметь: {do_text}"
+                            row[3].text = f"Знать:\n{know_text}\nУметь:\n{do_text}"
 
                             # Выравнивание
 
@@ -1285,6 +1285,96 @@ def export_to_word(request):
                     run.text = ''
 
                 questions = user_data.get('questions_work', [])
+
+                for i, question in enumerate(questions, 1):
+                    new_paragraph = p.insert_paragraph_before(f"{i}. {question}", style='Normal')
+
+            elif '{{tasks_for_control}}' in full_text:
+
+                for run in p.runs:
+                    run.text = ''
+
+                table = insert_table_after(p, rows=1, cols=4)
+                table.style = 'Table Grid'
+
+                # Заголовки
+                headers = ['Компетенция', 'Индикатор', 'Результаты обучения', 'Типовые контрольные задания']
+                hdr_cells = table.rows[0].cells
+
+                for i, text in enumerate(headers):
+                    hdr_cells[i].text = text
+                    para = hdr_cells[i].paragraphs[0]
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = para.runs[0]
+                    run.font.bold = True
+                    run.font.size = Pt(11)
+
+                # Группировка по профилям и компетенциям
+                grouped = defaultdict(lambda: defaultdict(list))
+
+                for profile, items in user_data['control_tasks'].items():
+                    for item in items:
+                        comp_key = (item['competence_code'], item['competence_name'])
+                        grouped[profile][comp_key].append(item)
+
+                # Заполнение таблицы
+                for profile, competencies in grouped.items():
+                    # Строка с названием профиля
+                    profile_row = table.add_row().cells
+                    profile_cell = profile_row[0]
+                    profile_cell.text = profile
+
+                    for i in range(1, 4):
+                        profile_row[i].text = ''
+
+                    profile_row[0].merge(profile_row[1]).merge(profile_row[2]).merge(profile_row[3])
+                    para = profile_cell.paragraphs[0]
+                    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    para.runs[0].bold = True
+                    para.runs[0].font.size = Pt(12)
+
+                    for (code, name), items in competencies.items():
+                        for idx, item in enumerate(items):
+                            row = table.add_row().cells
+
+                            # Компетенция: только в первой строке
+                            if idx == 0:
+                                row[0].text = f"{code}\n{name}"
+                            else:
+                                row[0].text = ''
+
+                            # Индикатор
+                            row[1].text = item['indicator']
+
+                            # Результаты обучения
+                            know = item.get('know', '')
+                            do = item.get('do', '')
+                            row[2].text = f"Знать:\n{know}\nУметь:\n{do}"
+
+                            # Типовые задания
+                            tasks = item.get('task', [])
+                            if isinstance(tasks, list):
+                                # for task in tasks:
+                                #     if task.strip():
+                                #         row[3].text = f'Задание {count}. {task}' + '\n'
+                                #
+                                #     count+=1
+                                row[3].text = '\n'.join(f'Задание {i+1}. {task}' for i, task in enumerate(tasks) if task.strip())
+                            else:
+                                row[3].text = str(tasks)
+
+                            #print('вывод', row[3].text)
+
+                            # Выравнивание по центру
+                            for cell in row:
+                                para = cell.paragraphs[0]
+                                para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            elif '{{questions_to_test_obj}}' in full_text:
+                for run in p.runs:
+                    run.text = ''
+
+                questions = user_data.get('example_quest', [])
 
                 for i, question in enumerate(questions, 1):
                     new_paragraph = p.insert_paragraph_before(f"{i}. {question}", style='Normal')
