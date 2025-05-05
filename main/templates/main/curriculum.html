@@ -129,13 +129,17 @@
                 </div>
             {% endfor %}
             <div class="features3">
-                <button type="submit" class="save-button">Сохранить данные</button>
+                <button type="submit" class="save-button" id="saveButton" disabled>Сохранить данные</button>
             </div>
         </form>
     </main>
 
     <div id="toast-container"></div>
     <script>
+        const rowStates = {};
+        const filledTables = new Set();
+        const totalTables = {{ tables|length }};  // передаётся из Django
+
         function showToast(message) {
             const toast = document.createElement('div');
             toast.classList.add('toast');
@@ -152,18 +156,43 @@
         function calculateRow(tableIndex, rowIndex) {
             const row = document.querySelector(`tr[data-table-index='${tableIndex}']:nth-of-type(${rowIndex})`);
             if (!row) return;
+
             const total = parseFloat(row.cells[2].innerText) || 0;
-            const classroom = parseFloat(row.querySelector(`input[name="classroom_${tableIndex}_${rowIndex}"]`).value) || 0;
-            const lectures = parseFloat(row.querySelector(`input[name="lectures_${tableIndex}_${rowIndex}"]`).value) || 0;
-            const seminars = parseFloat(row.querySelector(`input[name="seminars_${tableIndex}_${rowIndex}"]`).value) || 0;
-            const independent = parseFloat(row.querySelector(`input[name="independent_${tableIndex}_${rowIndex}"]`).value) || 0;
+            const classroom = parseFloat(row.querySelector(`input[name="classroom_${tableIndex}_${rowIndex}"]`)?.value) || 0;
+            const lectures = parseFloat(row.querySelector(`input[name="lectures_${tableIndex}_${rowIndex}"]`)?.value) || 0;
+            const seminars = parseFloat(row.querySelector(`input[name="seminars_${tableIndex}_${rowIndex}"]`)?.value) || 0;
+            const independent = parseFloat(row.querySelector(`input[name="independent_${tableIndex}_${rowIndex}"]`)?.value) || 0;
 
-            const diffTotalGeneral = total - classroom - independent;
-            const diffGeneralLecturesSeminars = classroom - lectures - seminars;
+            const diff1 = total - classroom - independent;
+            const diff2 = classroom - lectures - seminars;
 
-            showToast(`Таблица ${tableIndex}, строка ${rowIndex}:\nРазница (Всего - Общая - Самостоятельная): ${diffTotalGeneral.toFixed(2)}\nРазница (Общая - Лекции - Семинары): ${diffGeneralLecturesSeminars.toFixed(2)}`);
+            const key = `${tableIndex}_${rowIndex}`;
+            const isValid = Math.abs(diff1) < 0.01 && Math.abs(diff2) < 0.01;
+            rowStates[key] = isValid;
+
+            // Отметим, что таблица была заполнена
+            if (classroom > 0 || lectures > 0 || seminars > 0 || independent > 0) {
+                filledTables.add(tableIndex);
+            }
+
+            showToast(`Таблица ${tableIndex}, строка ${rowIndex}:\nРазница (Всего - Общая - Самостоятельная): ${diff1.toFixed(2)}\nРазница (Общая - Лекции - Семинары): ${diff2.toFixed(2)}`);
+
+            validateAllRows();
         }
 
+        function validateAllRows() {
+            const allValid = Object.values(rowStates).every(Boolean);
+            const allTablesFilled = filledTables.size === totalTables;
+            const button = document.getElementById('saveButton');
+            button.disabled = !(allValid && allTablesFilled);
+        }
+
+        // При загрузке блокируем кнопку
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('saveButton').disabled = true;
+        });
     </script>
+
+
 </body>
 </html>
