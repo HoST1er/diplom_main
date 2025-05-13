@@ -1,4 +1,3 @@
-from django.contrib.auth.views import LoginView
 from django.urls import path
 from . import views
 from .views import RegisterView
@@ -8,7 +7,6 @@ urlpatterns = [
     path('accounts/logout/', views.logout_view, name='logout'),
     path('profile/', views.profile_view, name='profile_view'),
     path('home', views.home, name='home'),
-    #path('insert', views.upload_excel, name='insert_datas'),
     path('start', views.start_page, name='start_page'),
     path("upload/", views.parse_excel_files, name="parse_excel_files"),
     path("upload_competencies/", views.parse_competencies, name="parse_competencies"),

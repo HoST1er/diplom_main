@@ -1,68 +1,181 @@
-<!--
-Author: Colorlib
-Author URL: https://colorlib.com
-License: Creative Commons Attribution 3.0 Unported
-License URL: http://creativecommons.org/licenses/by/3.0/
--->
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <link rel="stylesheet" href="{% static 'css/register.css' %}">
-<title>Creative Colorlib SignUp Form</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<script type="application/x-javascript"> addEventListener("load", function() { setTimeout(hideURLbar, 0); }, false); function hideURLbar(){ window.scrollTo(0,1); } </script>
-<!-- Custom Theme files -->
-<link href="css/style.css" rel="stylesheet" type="text/css" media="all" />
-<!-- //Custom Theme files -->
-<!-- web font -->
-<link href="//fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i" rel="stylesheet">
-<!-- //web font -->
+    <meta charset="UTF-8">
+    <title>Регистрация</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <style>
+        body {
+            background: #1c1c1c;
+            color: white;
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-w3layouts.wrapper {
+            padding: 40px 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .main-agileinfo {
+            width: 90%;
+            max-width: 400px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 10px;
+        }
+
+        .agileits-top form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        input.text,
+        input.email,
+        input.w3lpass {
+            background: transparent;
+            border: 1px solid #fff;
+            color: white;
+            padding: 12px 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+
+        input.text::placeholder,
+        input.email::placeholder,
+        input.w3lpass::placeholder {
+            color: #ccc;
+        }
+
+        .wthree-text {
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .wthree-text label {
+            color: #ccc;
+        }
+
+        input[type="checkbox"] {
+            accent-color: white;
+        }
+
+        input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+            border: 1px solid white;
+            padding: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        input[type="submit"]:hover {
+            background-color: white;
+            color: #000;
+        }
+
+        p {
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        p a {
+            color: #ccc;
+            text-decoration: underline;
+        }
+
+        p a:hover {
+            color: white;
+        }
+
+        .colorlibcopy-agile {
+            text-align: center;
+            color: #888;
+            margin-top: 30px;
+            font-size: 12px;
+        }
+
+        .colorlibcopy-agile a {
+            color: #aaa;
+        }
+
+        .colorlibcopy-agile a:hover {
+            color: white;
+        }
+
+        .colorlib-bubbles {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .colorlib-bubbles li {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            margin: 5px;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+            100% {
+                transform: translateY(0);
+            }
+        }
+    </style>
 </head>
 <body>
-	<!-- main -->
-	<div class="main-w3layouts wrapper">
-		<h1>Creative SignUp Form</h1>
-		<div class="main-agileinfo">
-			<div class="agileits-top">
-				<form method="post">
+    <!-- main -->
+    <div class="main-w3layouts wrapper">
+        <h1>Форма регистрации</h1>
+        <div class="main-agileinfo">
+            <div class="agileits-top">
+                <form method="post">
                     {% csrf_token %}
-					<input class="text" type="text" name="username" placeholder="Username" required="">
-					<input class="text email" type="email" name="email" placeholder="Email" required="">
-					<input class="text" type="password" name="password1" placeholder="Password" required="">
-					<input class="text w3lpass" type="password" name="password2" placeholder="Confirm Password" required="">
-					<div class="wthree-text">
-						<label class="anim">
-							<input type="checkbox" class="checkbox" required="">
-							<span>I Agree To The Terms & Conditions</span>
-						</label>
-						<div class="clear"> </div>
-					</div>
+                    <input class="text" type="text" name="username" placeholder="Username" required="">
+                    <input class="text email" type="email" name="email" placeholder="Email" required="">
+                    <input class="text w3lpass" type="password" name="password1" placeholder="Password" required="">
+                    <input class="text w3lpass" type="password" name="password2" placeholder="Confirm Password" required="">
+
+                    <div class="wthree-text">
+                        <label>
+                            <input type="checkbox" class="checkbox" required="">
+                            <span> Я согласен с условиями и положениями</span>
+                        </label>
+                    </div>
+
                     {{ form.errors }}
-					<input type="submit" value="SIGNUP">
-				</form>
-				<p>Don't have an Account? <a href="{% url 'login' %}"> Login Now!</a></p>
-			</div>
-		</div>
-		<!-- copyright -->
-		<div class="colorlibcopy-agile">
-			<p>© 2018 Colorlib Signup Form. All rights reserved | Design by <a href="https://colorlib.com/" target="_blank">Colorlib</a></p>
-		</div>
-		<!-- //copyright -->
-		<ul class="colorlib-bubbles">
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-			<li></li>
-		</ul>
-	</div>
-	<!-- //main -->
+
+                    <input type="submit" value="ЗАРЕГИСТРИРОВАТЬСЯ">
+                </form>
+                <p>Уже есть аккаунт? <a href="{% url 'login' %}">Войди!</a></p>
+            </div>
+        </div>
+
+    </div>
+    <!-- //main -->
 </body>
 </html>

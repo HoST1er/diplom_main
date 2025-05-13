@@ -378,9 +378,6 @@ def get_suggestions(request):
 
         suggestions = list(subject_query.values_list('name_object', flat=True).distinct())
 
-
-
-
     return JsonResponse(suggestions, safe=False)  # Отправляем данные в JSON
 
 @csrf_exempt
@@ -689,7 +686,6 @@ def save_user_data8(request):
 #     return render(request, 'competencies.html')
 
 def competencies(request):
-    #user_data = request.session.get('user_data', {})  # Получаем словарь из сессии
     subject_name = user_data.get('Наименование предмета', '')  # Извлекаем значение
     print('Название предмета', subject_name)
 
@@ -700,7 +696,6 @@ def competencies(request):
     all_competencies = Description_of_competencies.objects.all()
     competency_dict = {comp.competency_name: comp.description for comp in all_competencies}
 
-    #print(profiles.profile)
     for profile in profiles:
         print(profile.profile)
         profile.competentions_list = []
@@ -708,13 +703,6 @@ def competencies(request):
             code = code.strip()  # Убираем лишние пробелы
             description = competency_dict.get(code, "Описание не найдено")
             profile.competentions_list.append({'code': code, 'description': description})
-        # profile.competentions_list = profile.competentions.split(',')
-        # print(profile.competentions_list)
-
-
-    #profiles = user_data.get("Направление", '').split(',')
-    #print('куку', profiles)
-    #.competentions_list = profile.competentions.split(',')  # Разделение компетенций
 
     return render(request, 'main/competencies.html', {'profiles': profiles})
 

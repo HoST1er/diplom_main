@@ -8,17 +8,100 @@
     <link rel="stylesheet" href="{% static 'css/login.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css">
-    <script href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"></script>
-    <script href="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
     <title>{% translate 'Login' %}</title>
+    <style>
+        /* Темная тема + стили из второго шаблона */
+        body {
+            background-color: #222;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        .wrapper {
+            max-width: 400px;
+            margin: 80px auto;
+            background-color: #333;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .logo img {
+            width: 80px;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .form-field {
+            position: relative;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .form-field span {
+            position: absolute;
+            top: 10px;
+            color: #aaa;
+            left: 0;
+        }
+
+        .form-field input {
+            width: 100%;
+            padding: 10px 10px 10px 30px;
+            border: none;
+            border-radius: 5px;
+            background-color: #555;
+            color: white !important;
+        }
+
+        .form-field input::placeholder {
+            color: #ccc;
+        }
+
+        .btn {
+            width: 100%;
+            background-color: #4CAF50 !important;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .text-center.fs-6 a {
+            color: #ccc;
+            text-decoration: none;
+        }
+
+        .text-center.fs-6 a:hover {
+            text-decoration: underline;
+        }
+
+        .text-center.mt-4.name {
+            color: #fff;
+        }
+    </style>
 </head>
 <body>
     <div class="wrapper">
         <div class="logo">
-            <img src="https://www.freepnglogos.com/uploads/twitter-logo-png/twitter-bird-symbols-png-logo-0.png" alt="">
+            <img src="{% static 'img/871.png' %}" alt="logo" >
         </div>
         <div class="text-center mt-4 name">
-            Twitter
+            РПД
         </div>
         <form class="p-3 mt-3" method="post">
             {% csrf_token %}
@@ -31,10 +114,11 @@
                 <input type="password" name="password" id="pwd" placeholder="{% translate 'Password' %}">
             </div>
             {{ form.errors }}
-            <button class="btn mt-3">{% translate 'Login' %}</button>
+            <button class="btn mt-3">{% translate 'Войти' %}</button>
         </form>
         <div class="text-center fs-6">
-            <a href="{% url 'password_reset' %}">{% translate 'Forget password?' %}</a> or <a href="{% url 'register' %}">{% translate 'Sign up' %}</a>
+            <a href="{% url 'password_reset' %}">{% translate 'Забыли пароль?' %}</a> or
+            <a href="{% url 'register' %}">{% translate 'Зарегистрироваться' %}</a>
         </div>
     </div>
 </body>
