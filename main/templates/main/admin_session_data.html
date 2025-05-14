@@ -1,0 +1,30 @@
+{% load static %}
+{% include 'main/layout.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block styles %}
+    {% endblock %}
+</head>
+<body>
+    {% block oglav %}
+    {% endblock oglav %}
+    <main>
+        <div class="features">
+        {% for session in session_data_list %}
+          <div style="solid: #ccc; margin-bottom: 20px; padding: 10px;">
+            <h3>Пользователь: {{ session.user.username }} —
+                {% if session.source == 'active' %}🟢 Активный{% else %}🔴 Завершил{% endif %}
+            </h3>
+
+            <ul>
+              {% for key, value in session.user_data.items %}
+                <strong>{{ key }}:</strong> {{ value }}<br>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+        </div>
+    </main>
+</body>
+</html>

@@ -7,6 +7,10 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
 
+from django.contrib.auth.models import User
+from django.db import models
+from django.contrib.postgres.fields import JSONField
+
 class FirstVariantBd(models.Model):
     name_object = models.CharField(max_length=255)
     department = models.CharField(max_length=255)
@@ -54,3 +58,10 @@ class Description_of_competencies(models.Model):
         verbose_name = 'Компетенции'
         verbose_name_plural = 'Компетенции'
 
+class UserSessionData(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    data = models.JSONField()  # JSONField — сессия целиком
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Сессия {self.user.username} от {self.created_at}"

@@ -15,6 +15,7 @@
         <img src="{% static 'img/logo1.png' %}" alt="Лого">
         <br>
         <h3>Навигация</h3>
+        <p>Пользователь: {{ request.user.username }}</p>
         <ul>
             <a href="{% url 'home' %}"><li><i class="fa-solid fa-house"></i> Главная</li></a>
             <a href="{% url 'parse_excel_files' %}"><li><i class="fa-solid fa-arrow-up-from-bracket"></i></i> Обновление бд</li></a>

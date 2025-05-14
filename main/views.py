@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 
 import docx
+from django.core.exceptions import PermissionDenied
 from docx import Document
 
 import openpyxl
@@ -21,19 +22,97 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 from diplommain import settings
-from .models import FirstVariantBd, Description_of_competencies
+from .models import FirstVariantBd, Description_of_competencies, UserSessionData
 from main.scripts.parse_excel import Command
 from django.contrib import messages
 import fnmatch
 import os
 from .forms import FileUploadForm, RegisterForm
+from django.contrib.sessions.models import Session
+from django.contrib.auth.models import User
+from django.utils import timezone
+import pickle
+from django.conf import settings
+from importlib import import_module
 
-user_data = {}
+
+#user_data = {}
+
+def debug_sessions_view(request):
+    sessions = Session.objects.filter(expire_date__gte=timezone.now())
+    print(f'--- Найдено {sessions.count()} сессий ---')
+
+    for session in sessions:
+        data = session.get_decoded()
+        print('Сессия:', session.session_key)
+        print('Пользователь ID:', data.get('_auth_user_id'))
+        print('user_data:', data.get('user_data'))
+        print('---')
+
+    return HttpResponse("Смотри консоль сервера.")
+
+@login_required
+def finish_work(request):
+    if 'user_data' in request.session:
+        UserSessionData.objects.create(
+            user=request.user,
+            data=request.session['user_data']
+        )
+        del request.session['user_data']  # можно очистить, если нужно
+    return redirect('home')  # или куда нужно
+
+
+
 
 @login_required
 def profile_view(request):
-    return render(request, 'main/home.html')
+    if request.user.is_superuser:
+        sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        session_data_list = []
+
+        # Для доступа к session store (внутренности сессии)
+        engine = import_module(settings.SESSION_ENGINE)
+
+        for session in sessions:
+            try:
+                data = session.get_decoded()
+                print('Decoded data:', data)  # <-- добавь это
+                user_id = data.get('_auth_user_id')
+                user = User.objects.get(id=user_id)
+
+                if 'user_data' in data:
+                    session_data_list.append({
+                        'user': user,
+                        'user_data': data['user_data'],
+                        'source': 'active'
+                    })
+            except:
+                continue
+
+        completed = UserSessionData.objects.all()
+
+        for item in completed:
+            session_data_list.append({
+                'user': item.user,
+                'user_data': item.data,
+                'source': 'saved'
+            })
+
+        return render(request, 'main/admin_session_data.html', {'session_data_list': session_data_list})
+    else:
+        if request.path == '/admin_session_data/':
+            raise PermissionDenied()
+        # Данные и шаблон для обычного пользователя
+        return render(request, 'main/home.html', {'user': request.user})
 def logout_view(request):
+    if 'user_data' in request.session:
+        print("✅ user_data найден в сессии. Сохраняем...")
+        UserSessionData.objects.create(
+            user=request.user,
+            data=request.session['user_data']
+        )
+    else:
+        print("⚠️ user_data отсутствует в сессии.")
     logout(request)
     return redirect('profile_view')
 
@@ -47,9 +126,35 @@ class RegisterView(FormView):
         return super().form_valid(form)
 
 
-def delete_all_subjects():
-    FirstVariantBd.objects.all().delete()
-    print("Все записи из таблицы Subject удалены!")
+
+# def admin_user_data_view(request):
+#     if not request.user.is_superuser:
+#         return redirect('dashboard')  # или вернуть 403
+#
+#     sessions = Session.objects.filter(expire_date__gte=timezone.now())
+#     session_data_list = []
+#
+#     # Для доступа к session store (внутренности сессии)
+#     engine = import_module(settings.SESSION_ENGINE)
+#
+#     for session in sessions:
+#         try:
+#             data = session.get_decoded()
+#             user_id = data.get('_auth_user_id')
+#             user = User.objects.get(id=user_id)
+#
+#             if 'user_data' in data:
+#                 session_data_list.append({
+#                     'user': user,
+#                     'user_data': data['user_data']
+#                 })
+#
+#         except Exception as e:
+#             continue  # если пользователь удалён или сессия битая
+#
+#     return render(request, 'main/admin_session_data.html', {'session_data_list': session_data_list})
+
+
 
 @csrf_exempt  # Отключение CSRF-защиты (не рекомендуется для продакшена!)
 def parse_excel_files(request):
@@ -384,6 +489,8 @@ def get_suggestions(request):
 def save_user_data(request):
     """Обработчик для сохранения данных пользователя"""
     if request.method == 'POST':
+        # Получаем словарь из сессии или создаем новый, если его нет
+        user_data = request.session.get('user_data', {})
         teacher = request.POST.get('teacher', '').strip()
         subject = request.POST.get('subject', '').strip()
         direction = request.POST.get('direction', '').strip()
@@ -398,6 +505,9 @@ def save_user_data(request):
 
         #print('программа',obraz_program[0].edu_program)
         user_data['Образовательная программа'] = obraz_program[0].edu_program
+        request.session['user_data'] = user_data
+        request.session.modified = True  # если вносишь изменения в уже существующий словарь
+
         print("Сохраненные данные:", user_data)
         # for i in obraz_program:
         #     print('программа',i.edu_program)
@@ -410,11 +520,14 @@ def save_user_data(request):
 @csrf_exempt
 def save_user_data1(request):
     if request.method == 'POST':
+        user_data = request.session.get('user_data', {})
         try:
             data = json.loads(request.body.decode("utf-8"))  # Разбираем JSON из тела запроса
 
             competencies = data.get("competencies", [])  # Получаем массив компетенций
             user_data["competencies"] = competencies  # Сохраняем их
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             print("Сохраненные данные:", user_data)  # Выводим для отладки
 
@@ -427,24 +540,8 @@ def save_user_data1(request):
 
 @csrf_exempt
 def save_user_data2(request):
-    # if request.method == "POST":
-    #     try:
-    #         # Декодируем JSON из запроса
-    #         data = json.loads(request.body)
-    #
-    #         # Сохраняем в глобальном словаре (или в БД)
-    #         user_data["topics"] = data.get("topics", [])
-    #
-    #         print("Данные успешно сохранены:", user_data)  # Логирование
-    #
-    #         return JsonResponse({"status": "success"})
-    #     except Exception as e:
-    #         print("Ошибка при обработке данных:", str(e))
-    #         return JsonResponse({"status": "error", "message": str(e)}, status=400)
-    #
-    # return JsonResponse({"status": "invalid request"}, status=400)
-
     if request.method == "POST":
+        user_data = request.session.get('user_data', {})
         try:
             # Декодируем JSON из запроса
             data = json.loads(request.body)
@@ -481,6 +578,8 @@ def save_user_data2(request):
                         "description": topic["description"],
                         "time": topic["time"]
                     }]
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             print("Данные успешно сохранены:", user_data)  # Логирование
 
@@ -494,6 +593,7 @@ def save_user_data2(request):
 @csrf_exempt
 def save_user_data3(request):
     if request.method == 'POST':
+        user_data = request.session.get('user_data', {})
         curriculum_data = {}
         tables_count = int(request.POST.get("tables_count", 0))
 
@@ -522,6 +622,9 @@ def save_user_data3(request):
             curriculum_data[f'Профили: {profiles}'] = topics_data
 
         user_data['curriculum'] = curriculum_data
+        request.session['user_data'] = user_data
+        request.session.modified = True  # если вносишь изменения в уже существующий словарь
+
         print(user_data)  # или сохранить куда нужно
 
         return redirect('content_of_seminars')
@@ -532,6 +635,8 @@ def save_user_data3(request):
 @csrf_exempt
 def save_user_data4(request):
     if request.method == "POST":
+        # Получаем словарь из сессии или создаем новый, если его нет
+        user_data = request.session.get('user_data', {})
         try:
             # Загружаем данные из тела запроса
             data = json.loads(request.body)
@@ -550,6 +655,8 @@ def save_user_data4(request):
 
             # Сохраняем данные в словарь user_data
             user_data["seminars_content"] = seminars_content_data
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             print("Данные успешно сохранены:", user_data)  # Лог для проверки
 
@@ -564,6 +671,7 @@ def save_user_data4(request):
 @csrf_exempt
 def save_user_data5(request):
     if request.method == "POST":
+        user_data = request.session.get('user_data', {})
         try:
             # Загружаем данные из тела запроса
             data = json.loads(request.body)
@@ -582,6 +690,8 @@ def save_user_data5(request):
 
             # Сохраняем данные в словарь user_data
             user_data["questions_list"] = questions_list_data
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             print("Данные успешно сохранены:", user_data)  # Лог для проверки
 
@@ -596,6 +706,7 @@ def save_user_data5(request):
 @csrf_exempt
 def save_user_data6(request):
     if request.method == "POST":
+        user_data = request.session.get('user_data', {})
         try:
             data = json.loads(request.body)
 
@@ -605,6 +716,8 @@ def save_user_data6(request):
 
             # Сохранение в user_data
             user_data["questions_work"] = questions_work_data
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             print("Данные успешно сохранены:", user_data)  # Проверка данных
 
@@ -618,6 +731,7 @@ def save_user_data6(request):
 @csrf_exempt
 def save_user_data7(request):
     if request.method == 'POST':
+        user_data = request.session.get('user_data', {})
         try:
             data = json.loads(request.body)
             control_tasks = data.get('control_tasks', [])
@@ -652,6 +766,8 @@ def save_user_data7(request):
                         'do': do_value,
                         'task': tasks
                     })
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             return JsonResponse({'status': 'success'})
         except Exception as e:
@@ -663,6 +779,7 @@ def save_user_data7(request):
 @csrf_exempt
 def save_user_data8(request):
     if request.method == "POST":
+        user_data = request.session.get('user_data', {})
         try:
             data = json.loads(request.body)
 
@@ -672,6 +789,8 @@ def save_user_data8(request):
 
             # Сохранение в user_data
             user_data["example_quest"] = example_quest_data
+            request.session['user_data'] = user_data
+            request.session.modified = True  # если вносишь изменения в уже существующий словарь
 
             print("Данные успешно сохранены:", user_data)  # Проверка данных
 
@@ -686,6 +805,7 @@ def save_user_data8(request):
 #     return render(request, 'competencies.html')
 
 def competencies(request):
+    user_data = request.session.get('user_data', {})
     subject_name = user_data.get('Наименование предмета', '')  # Извлекаем значение
     print('Название предмета', subject_name)
 
@@ -707,6 +827,7 @@ def competencies(request):
     return render(request, 'main/competencies.html', {'profiles': profiles})
 
 def content_of_discipline(request):
+    user_data = request.session.get('user_data', {})
     print(user_data)
     if request.method == "POST":
         # Получаем данные из запроса
@@ -767,6 +888,7 @@ def safe_int(value, default=0):
 
 
 def curriculum(request):
+    user_data = request.session.get('user_data', {})
     # Получаем данные из базы
     profiles = FirstVariantBd.objects.filter(
         direction_of_preparation=user_data['Направление'],
@@ -842,22 +964,27 @@ def curriculum(request):
     return render(request, 'main/curriculum.html', {'tables': table_data})
 
 def content_of_seminars(request):
+    user_data = request.session.get('user_data', {})
     print(user_data)
     return render(request, "main/content_of_seminars.html", {'user_data': user_data})
 
 def list_of_questions(request):
+    user_data = request.session.get('user_data', {})
     print(user_data)
     return render(request, "main/list_of_questions.html", {'user_data': user_data})
 
 def questions_to_work(request):
+    user_data = request.session.get('user_data', {})
     print(user_data)
     return render(request, "main/questions_to_work.html")
 
 def example_quest_to_test(request):
+    user_data = request.session.get('user_data', {})
     print(user_data)
     return render(request, "main/example_quest_to_test.html")
 
 def example_tasks(request):
+    user_data = request.session.get('user_data', {})
     competencies_by_profile = {}
     for item in user_data['competencies']:
         profile = item['profile']
@@ -901,6 +1028,7 @@ def insert_paragraph_after(paragraph, text=''):
         run = new_para.add_run(text)
     return new_para
 def export_to_word(request):
+    user_data = request.session.get('user_data', {})
     template_path = 'C:/Users/andru/PycharmProjects/diplommain/main/templates/docx_templates/template_with_placeholders.docx'
 
     if not os.path.exists(template_path):

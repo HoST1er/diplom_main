@@ -15,6 +15,8 @@ import os
 
 from django.urls import reverse_lazy
 
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -137,6 +139,9 @@ STATICFILES_DIRS = [
     BASE_DIR / "main/static",
 
 ]
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_SAVE_EVERY_REQUEST = True  # желательно для отладки
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

@@ -20,8 +20,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from main.views import debug_sessions_view
+
 urlpatterns = [
     path('', lambda request: redirect('login')),
+    path('debug-sessions/', debug_sessions_view),
     path('admin/', admin.site.urls),
     path('', include('main.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
