@@ -985,19 +985,21 @@ def example_quest_to_test(request):
 
 def example_tasks(request):
     user_data = request.session.get('user_data', {})
+    print('проверка', user_data['competencies'])
     competencies_by_profile = {}
     for item in user_data['competencies']:
         profile = item['profile']
         if profile not in competencies_by_profile:
             competencies_by_profile[profile] = []
         competencies_by_profile[profile].append(item)
+    print('bhjbcvghh', competencies_by_profile[profile])
 
     # Добавляем вычисление rowspan для каждой компетенции и объединяем индикаторы, знания и умения
     for profile, competencies in competencies_by_profile.items():
         for competence in competencies:
             competence['rowspan'] = len(competence['indicators']) + 1  # Для каждого индикатора добавляем +1 для самой компетенции
             # Собираем данные для индикаторов, знаний и умений
-            competence['indicators_with_know_do'] = zip(competence['indicators'], competence['know'], competence['do'])
+            competence['indicators_with_know_do'] = list(zip(competence['indicators'], competence['know'], competence['do']))
 
     return render(request, 'main/example_tasks.html', {'competencies_by_profile': competencies_by_profile})
 
